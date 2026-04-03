@@ -35,9 +35,6 @@ export default function App() {
             <NavLink to="/plants" className="nav-item">
               Plantations
             </NavLink>
-            <NavLink to="/add-plant" className="nav-item">
-              Ajouter
-            </NavLink>
             <NavLink to="/admin" className="nav-item">
               Admin
             </NavLink>

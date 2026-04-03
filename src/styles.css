@@ -907,6 +907,21 @@ button {
   gap: 0.25rem;
 }
 
+.plants-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.plants-title-row .section-title {
+  margin: 0;
+}
+
+.plants-add-button {
+  margin: 0;
+}
+
 .plants-stats {
   display: flex;
   gap: 0.4rem;
