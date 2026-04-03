@@ -1,0 +1,1102 @@
+/* =========================================================
+   0. RESET & BASE
+========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f5f6f8;
+  color: #1a1a1a;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.4;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+}
+
+
+/* =========================================================
+   1. LAYOUT GLOBAL (Header + Contenu)
+========================================================= */
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.nav-item {
+  background: #eef6ee;
+  color: #2e7d32;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(46, 125, 50, 0.15);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  padding: 0.4rem 0.6rem;
+}
+
+.nav-item[aria-current="page"],
+.nav-item.active {
+  background: #2e7d32;
+  color: #fff;
+  border-color: #2e7d32;
+  box-shadow: 0 4px 10px rgba(46, 125, 50, 0.3);
+}
+
+.main-content {
+  flex: 1;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 1rem 2rem;
+  color: #1a1a1a;
+}
+
+.section-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+
+/* =========================================================
+   2. PAGE JARDIN (/zones)
+   -> 2 colonnes :
+      gauche : carte générale du jardin
+      droite : liste des zones
+========================================================= */
+
+.zones-page-2col {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2rem;
+  flex-wrap: nowrap;
+}
+
+.zones-left-col {
+  flex: 2 1 0;
+  min-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.zones-right-col {
+  flex: 1 1 0;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .zones-page-2col {
+    flex-wrap: wrap;
+  }
+
+  .zones-left-col,
+  .zones-right-col {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+
+/* =============== 2.a Carte générale du jardin (colonne gauche) =============== */
+
+.garden-overview-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 1rem;
+  width: 100%;
+  max-width: 800px;
+  overflow-x: auto;
+}
+
+.garden-map-stage {
+  position: relative;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #f9f9f9;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.garden-map-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Zone colorée et cliquable sur la carte générale */
+.zone-overlay-abs {
+  position: absolute;
+  border: 3px solid;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0.4rem;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  z-index: 10;
+}
+
+.zone-overlay-abs-hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 16px 32px rgba(0,0,0,0.45);
+  outline: 2px solid #fff;
+  outline-offset: -3px;
+}
+
+/* Label visible dans chaque zone (nom + nb plantes) */
+.zone-overlay-label {
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  max-width: 150px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.zone-overlay-name {
+  margin: 0 0 0.2rem;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.zone-overlay-count {
+  color: #ddd;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+/* Pins des plantes affichées sur la carte générale */
+.garden-plant-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: #fff;
+  border: 2px solid #2e7d32;
+  border-radius: 999px;
+  padding: 0.25rem 0.4rem;
+  font-size: 1rem;
+  line-height: 1;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  z-index: 20;
+}
+
+.garden-plant-pin:hover {
+  border-color: #ff9800;
+  box-shadow: 0 8px 24px rgba(255,152,0,0.5);
+}
+
+/* Tooltip affichée au survol d'une zone : coordonnées + nom */
+.zone-hover-tooltip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  pointer-events: none;
+  max-width: 220px;
+  z-index: 9999;
+  text-align: left;
+}
+
+.tooltip-name {
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.tooltip-coords {
+  color: #ccc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+
+/* =============== 2.b Liste des zones (colonne droite) =============== */
+
+.zones-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.zone-card-rich {
+  background: #fff;
+  border: 2px solid #6BAF4A; /* pourra être overridé inline avec zone.color */
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  display: block;
+}
+
+.zone-card-rich:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(0,0,0,0.08);
+}
+
+.zone-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.zone-card-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.zone-chip {
+  background: #c8e6c9; /* pourra être surchargé inline */
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #1a1a1a;
+  white-space: nowrap;
+}
+
+.zone-desc {
+  margin: 0.5rem 0 0.5rem;
+  color: #444;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.zone-extra {
+  background: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: #333;
+  word-break: break-word;
+}
+
+.zone-extra-label {
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 0.25rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.zone-extra-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  color: #444;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+
+/* =========================================================
+   3. PAGE ZONE (/zones/:zoneId)
+   -> 2 colonnes :
+      gauche : vue zoomée de la zone + infos
+      droite : liste des plantes de la zone
+========================================================= */
+
+.zone-page-2col {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2rem;
+  flex-wrap: nowrap;
+}
+
+.zone-left-col {
+  flex: 2 1 0;
+  min-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.zone-right-col {
+  flex: 1 1 0;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .zone-page-2col {
+    flex-wrap: wrap;
+  }
+
+  .zone-left-col,
+  .zone-right-col {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+/* =============== 3.a Mini-map zone zoomée (pas tout le jardin) =============== */
+
+.zone-minimap-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 1rem;
+  width: 100%;
+  max-width: 800px;
+}
+
+/* zone-minimap-area = représentation abstraite de la zone seule */
+.zone-minimap-area {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  border: 3px solid;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.15);
+  overflow: hidden;
+  background: rgba(0,0,0,0.03);
+}
+
+.zone-minimap-header-chip {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.5rem;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  max-width: 160px;
+}
+
+.zone-minimap-name {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #fff;
+}
+
+.zone-minimap-count {
+  font-size: 0.7rem;
+  line-height: 1.2;
+  color: #ddd;
+}
+
+/* Pins dans la mini-map locale */
+.zone-minimap-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: #fff;
+  border: 2px solid #2e7d32;
+  border-radius: 999px;
+  padding: 0.25rem 0.4rem;
+  font-size: 1rem;
+  line-height: 1;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  cursor: default;
+}
+
+/* =============== 3.b Infos zone (description, coords, nb plantes) =============== */
+
+.zone-infos-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 1rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #1a1a1a;
+}
+
+.zone-infos-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.zone-infos-label {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #1a1a1a;
+}
+
+.zone-infos-value {
+  font-size: 0.8rem;
+  color: #444;
+}
+
+.zone-infos-coords {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: #444;
+  word-break: break-word;
+}
+
+/* =============== 3.c Liste des plantes de la zone (colonne droite) =============== */
+
+.zone-detail-empty {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: #666;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.plants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px,100%), 1fr));
+  gap: 1rem;
+}
+
+.plant-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.plant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+}
+
+.plant-photo {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #f0f0f0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plant-photo-placeholder {
+  width: 100%;
+  height: 100%;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plant-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.plant-info h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.plant-info p {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: #555;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+
+
+/* =========================================================
+   5. PLANNING D’ENTRETIEN (/schedule)
+========================================================= */
+
+.schedule-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.schedule-page h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.task-item {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-left: 4px solid #2e7d32;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 0.75rem 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.task-item.pending {
+  opacity: 1;
+}
+
+.task-item.done {
+  opacity: 0.6;
+  border-left-color: #999;
+}
+
+.task-item.skipped {
+  opacity: 0.6;
+  border-left-color: #c62828;
+}
+
+.task-date {
+  background: #eef6ee;
+  border: 1px solid #2e7d32;
+  color: #2e7d32;
+  border-radius: 8px;
+  min-width: 4.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.4rem 0.5rem;
+}
+
+.task-info {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  color: #1a1a1a;
+  line-height: 1.4;
+}
+
+.task-info b {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.task-notes {
+  font-size: 0.75rem;
+  color: #555;
+  line-height: 1.4;
+  margin-top: 0.4rem;
+  word-break: break-word;
+}
+
+@media (max-width: 600px) {
+  .task-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .task-date {
+    min-width: auto;
+    width: fit-content;
+  }
+}
+
+
+/* =========================================================
+   6. AJOUT DE PLANTE (/add-plant)
+========================================================= */
+
+.add-plant-page {
+  max-width: 480px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 1rem 1rem 1.5rem;
+}
+
+.add-plant-page h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.plant-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.plant-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  color: #1a1a1a;
+  gap: 0.3rem;
+}
+
+.plant-form input,
+.plant-form select,
+.plant-form textarea {
+  font-size: 0.85rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: inherit;
+  background: #fff;
+  line-height: 1.3;
+  color: #1a1a1a;
+}
+
+.plant-form input:focus,
+.plant-form select:focus,
+.plant-form textarea:focus {
+  outline: none;
+  border-color: #2e7d32;
+  box-shadow: 0 0 0 2px rgba(46,125,50,0.2);
+}
+
+.plant-form button[type="submit"] {
+  align-self: flex-start;
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-weight: 500;
+  box-shadow: 0 4px 10px rgba(46,125,50,0.3);
+}
+
+.plant-form button[type="submit"]:hover {
+  background: #256428;
+}
+
+
+/* =========================================================
+   7. UTILITAIRES GÉNÉRAUX
+========================================================= */
+
+.back-link {
+  display: inline-block;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  margin-top: 0.5rem;
+  color: #2e7d32;
+  font-weight: 500;
+}
+.back-link:hover {
+  text-decoration: underline;
+}
+µ/* =========================================================
+   8. PAGE LISTES (/lists)
+   -> 2 colonnes :
+      gauche : espèces
+      droite : instances
+========================================================= */
+
+.lists-page-2col {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2rem;
+  flex-wrap: nowrap;
+}
+
+.lists-left {
+  flex: 1 1 0;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lists-right {
+  flex: 1 1 0;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .lists-page-2col {
+    flex-wrap: wrap;
+  }
+  .lists-left,
+  .lists-right {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+}
+/* Liste des instances */
+
+.instance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.instance-row {
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.04);
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.instance-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.06);
+  border-color: #2e7d32;
+}
+
+.instance-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.instance-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.instance-nickname {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.instance-species {
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.instance-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.instance-zone {
+  font-weight: 500;
+}
+
+.instance-date {
+  font-style: italic;
+}
+
+/* =========================================================
+   PAGE PLANTATIONS (/plants)
+========================================================= */
+
+.plants-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plants-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.plants-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.plants-stats {
+  display: flex;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #555;
+}
+
+/* filtres */
+.plants-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.plants-search {
+  min-width: 220px;
+  flex: 1 1 160px;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.plants-search:focus {
+  outline: none;
+  border-color: #2e7d32;
+  box-shadow: 0 0 0 2px rgba(46,125,50,0.2);
+}
+
+.plants-filter-select {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+/* état vide */
+.instance-empty {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: #666;
+  font-style: italic;
+}
+
+.species-actions {
+  margin-top: 0.5rem;
+}
+
+.btn-secondary {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid #2e7d32;
+  background: #eef6ee;
+  color: #2e7d32;
+  box-shadow: 0 2px 6px rgba(46,125,50,0.15);
+}
+
+.btn-secondary:hover {
+  background: #2e7d32;
+  color: #fff;
+}
+
+/* =========================================================
+   PAGE AJOUT (/add-plant) : espèce + plantation
+========================================================= */
+
+.add-page-layout {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.add-col {
+  flex: 1 1 320px;
+  min-width: 280px;
+}
+
+.add-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 1rem 1rem 1.25rem;
+}
+
+.add-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Formulaire d'espèce */
+.species-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.species-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  color: #1a1a1a;
+  gap: 0.3rem;
+}
+
+.species-form input,
+.species-form textarea {
+  font-size: 0.85rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: inherit;
+  background: #fff;
+  line-height: 1.3;
+  color: #1a1a1a;
+}
+
+.species-form input:focus,
+.species-form textarea:focus {
+  outline: none;
+  border-color: #2e7d32;
+  box-shadow: 0 0 0 2px rgba(46,125,50,0.2);
+}
+
+.species-form button[type="submit"],
+.plant-form button[type="submit"] {
+  align-self: flex-start;
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-weight: 500;
+  box-shadow: 0 4px 10px rgba(46,125,50,0.3);
+}
+
+.species-form button[type="submit"]:hover,
+.plant-form button[type="submit"]:hover {
+  background: #256428;
+}
+
+.species-name-link {
+  cursor: pointer;
+  text-decoration: underline;
+}
+.species-name-link:hover {
+  color: #2e7d32;
+}
+
+.plant-card-clickable {
+  cursor: pointer;
+}
+
+.plant-card-clickable:hover {
+  /* tu as déjà un hover sur .plant-card, on renforce juste un peu la cohérence */
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+}
+
+.species-actions,
+.instance-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.5rem;
+  justify-content: flex-end;
+}
+
+.btn-icon-danger {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid #b71c1c;
+  background: #ffebee;
+  color: #b71c1c;
+  cursor: pointer;
+}
+
+.btn-icon-danger:hover {
+  background: #b71c1c;
+  color: #fff;
+}
+

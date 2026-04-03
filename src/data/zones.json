@@ -1,0 +1,31 @@
+[
+  {
+    "id": 1,
+    "name": "Potager",
+    "description": "Bacs potagers surélevés à l’arrière du jardin",
+    "color": "#6BAF4A",
+    "zone_type": "potager",
+    "bbox": { "x_pct": 20, "y_pct": 60, "w_pct": 20, "h_pct": 20 },
+    "shape": [
+      { "x_pct": 20, "y_pct": 60 },
+      { "x_pct": 40, "y_pct": 60 },
+      { "x_pct": 40, "y_pct": 80 },
+      { "x_pct": 20, "y_pct": 80 }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Serre",
+    "description": "Serre en polycarbonate, semi-ombragée",
+    "color": "#9CCC65",
+    "zone_type": "serre",
+    "bbox": { "x_pct": 65, "y_pct": 45, "w_pct": 15, "h_pct": 12 },
+    "shape": [
+      { "x_pct": 65, "y_pct": 45 },
+      { "x_pct": 80, "y_pct": 45 },
+      { "x_pct": 80, "y_pct": 57 },
+      { "x_pct": 65, "y_pct": 57 }
+    ]
+  }
+]
+

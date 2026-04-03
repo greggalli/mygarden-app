@@ -1,0 +1,20 @@
+[
+  {
+    "id": 101,
+    "species_id": 1,
+    "zone_id": 1,
+    "nickname": "Tomate cabanon",
+    "planting_date": "2025-04-20",
+    "notes": "A eu des pucerons en juin",
+    "position": { "x_pct": 30, "y_pct": 70 }
+  },
+  {
+    "id": 102,
+    "species_id": 2,
+    "zone_id": 1,
+    "nickname": "Courgette 1",
+    "planting_date": "2025-05-10",
+    "notes": "",
+    "position": { "x_pct": 35, "y_pct": 75 }
+  }
+]

@@ -1,0 +1,711 @@
+/* === Species pages (liste + détails) === */
+
+/* --- Page de détail espèce --- */
+
+.species-detail-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2.5rem;
+}
+
+.species-detail-header {
+  margin-bottom: 0.75rem;
+}
+
+/* Titre + sous-titre harmonisés avec les autres pages de détail */
+.species-detail-page .detail-title {
+  margin-bottom: 0.25rem;
+}
+
+.species-detail-page .detail-subtitle {
+  color: #555;
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+.species-detail-sci {
+  font-style: italic;
+}
+
+/* Layout 2 colonnes : gauche 2/3, droite 1/3 */
+
+.species-detail-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.species-detail-main,
+.species-detail-side {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .species-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .species-detail-side {
+    order: 2;
+  }
+}
+
+/* Sections & cartes */
+
+.species-detail-section {
+  margin-bottom: 1.5rem;
+}
+
+.species-detail-card {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Titres de section */
+
+.species-detail-page h3 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+/* Photo de l'espèce */
+
+.species-detail-photo-wrapper {
+  margin-bottom: 1.25rem;
+}
+
+.species-detail-photo {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* Caractéristiques (dl) */
+
+.species-detail-attributes {
+  margin: 0.5rem 0 0;
+}
+
+.species-detail-attribute-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.06);
+}
+
+.species-detail-attribute-row:last-child {
+  border-bottom: none;
+}
+
+.species-detail-attribute-row dt {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.species-detail-attribute-row dd {
+  margin: 0;
+  font-size: 0.95rem;
+  text-align: right;
+}
+
+/* Résumé / stats */
+
+.species-detail-stats {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.species-detail-stats .stat-item {
+  flex: 1;
+  text-align: center;
+}
+
+.species-detail-stats .stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.species-detail-stats .stat-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* Liste des zones */
+
+.species-zones-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.zone-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: #f5f5f5;
+  font-size: 0.9rem;
+}
+
+.zone-pill-name {
+  font-weight: 500;
+}
+
+.zone-pill-count {
+  font-weight: 600;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+/* Section du bas : plantations de cette espèce */
+
+.species-detail-instances {
+  margin-top: 1rem;
+}
+
+.species-detail-instances .instance-list {
+  margin-top: 0.75rem;
+}
+
+.species-detail-instances .instance-row {
+  width: 100%;
+  text-align: left;
+}
+
+/* === Galerie photos sur la fiche espèce === */
+
+/* === Carrousel de photos sur la fiche espèce === */
+
+.species-photo-block {
+  width: 100%;
+}
+
+.species-photo-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.species-photo-main {
+  position: relative;
+  width: 100%;
+  max-height: 260px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.species-photo-main img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Contrôles prev/next + compteur */
+
+.species-photo-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.photo-nav-btn {
+  border: none;
+  background: #f3f4f6;
+  border-radius: 999px;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-nav-btn:hover {
+  background: #e5e7eb;
+}
+
+.photo-counter {
+  color: #555;
+}
+
+/* Miniatures cliquables */
+
+.species-photo-thumbs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.species-photo-thumb {
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  flex: 0 0 64px;
+  height: 64px;
+  opacity: 0.7;
+}
+
+.species-photo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.species-photo-thumb.is-active {
+  opacity: 1;
+  outline: 2px solid #4b82f0;
+}
+
+/* Responsive : laisse la largeur gérer, pas de changement majeur ici */
+
+@media (max-width: 768px) {
+  .species-photo-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 100px;
+  }
+
+  .species-photo-main {
+    grid-row: span 1;
+  }
+}
+
+/* === Liste de liens externes === */
+
+.species-link-list {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.species-link-item a {
+  font-size: 0.9rem;
+  text-decoration: none;
+  color: #3366cc;
+}
+
+.species-link-item a:hover {
+  text-decoration: underline;
+}
+
+/* === Organisation Botanique / Jardin === */
+
+.species-botanic-section {
+  margin-bottom: 2rem;
+}
+
+/* Grille pour le bloc botanique : photos + liens */
+.species-botanic-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.species-botanic-links h4 {
+  font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+}
+
+/* Sur mobile : une seule colonne */
+@media (max-width: 768px) {
+  .species-botanic-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Section "Dans le jardin" */
+.species-garden-section {
+  margin-bottom: 2rem;
+}
+
+.species-garden-section h4 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* Sous-titre "Conseils d’entretien" dans la carte d'entretien */
+.species-garden-care h5 {
+  font-size: 0.9rem;
+  margin: 0.75rem 0 0.25rem;
+  font-weight: 600;
+}
+
+
+/* Titre + sous-titre */
+
+.detail-title {
+  margin: 0 0 0.25rem;
+}
+
+.species-detail-sci.detail-subtitle,
+.detail-subtitle.species-detail-sci {
+  font-size: 0.95rem;
+  color: #555;
+  margin: 0 0 1rem;
+}
+
+/* Bloc section générique */
+
+.species-detail-section {
+  margin-bottom: 1.5rem;
+}
+
+/* Card générique, si pas déjà définie */
+
+.species-detail-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Header de section */
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.section-header-inline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* Carrousel de photos */
+
+.species-photo-block {
+  width: 100%;
+}
+
+.species-photo-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.species-photo-main {
+  position: relative;
+  width: 100%;
+  max-height: 260px;
+  overflow: hidden;
+  border-radius: 10px;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.species-photo-main img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* même taille / ratio visuel */
+}
+
+/* Contrôles du carrousel */
+
+.species-photo-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.photo-nav-btn {
+  border: none;
+  background: #f3f4f6;
+  border-radius: 999px;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-nav-btn:hover {
+  background: #e5e7eb;
+}
+
+.photo-counter {
+  color: #555;
+}
+
+/* Vignettes */
+
+.species-photo-thumbs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.species-photo-thumb {
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  flex: 0 0 64px;
+  height: 64px;
+  opacity: 0.7;
+}
+
+.species-photo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.species-photo-thumb.is-active {
+  opacity: 1;
+  outline: 2px solid #4b82f0;
+}
+
+/* Lightbox */
+
+.photo-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.photo-lightbox {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: #000;
+  padding: 0.5rem;
+  border-radius: 10px;
+}
+
+.photo-lightbox img {
+  display: block;
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+}
+
+.photo-lightbox-close {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border-radius: 999px;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+}
+
+/* =========================================================
+   LISTE ESPÈCES COMPACTE (/species)
+========================================================= */
+
+.species-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.species-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.species-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.species-stats {
+  display: flex;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #555;
+}
+
+/* Filtres */
+
+.species-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.species-search {
+  min-width: 220px;
+  flex: 1 1 160px;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.species-search:focus {
+  outline: none;
+  border-color: #2e7d32;
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+}
+
+.species-filter-select {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+/* Liste compacte */
+
+.species-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Chaque espèce = une "ligne" compacte */
+
+.species-row {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "line1 actions"
+    "line2 actions";
+  column-gap: 0.5rem;
+  row-gap: 0.25rem;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.04);
+}
+
+.species-row-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s;
+}
+
+.species-row-clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.07);
+  border-color: #2e7d32;
+}
+
+/* Ligne 1 : nom, nom scientifique, famille, stats */
+
+.species-row-line1 {
+  grid-area: line1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.species-row-name {
+  font-size: 0.85rem;
+}
+
+.species-row-sci {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: #555;
+}
+
+.species-row-family {
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.species-row-count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.species-row-zones {
+  font-size: 0.78rem;
+  color: #555;
+}
+
+/* Ligne 2 : périodes */
+
+.species-row-line2 {
+  grid-area: line2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: #555;
+}
+
+/* Actions à droite */
+
+.species-row-actions {
+  grid-area: actions;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.species-empty {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  padding: 0.8rem;
+  font-size: 0.8rem;
+  color: #666;
+}

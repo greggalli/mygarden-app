@@ -1,0 +1,46 @@
+[
+  {
+    "id": 1,
+    "common_name": "Rosier grimpant",
+    "scientific_name": "Rosa spp.",
+    "family": "Rosaceae",
+    "pruning_period": "Février à mars",
+    "flowering_period": "Mai à octobre",
+    "care_tips": "Tailler les tiges mortes à la fin de l’hiver. Apporter un engrais au printemps.",
+    "notes": "Supporte mal l’humidité au pied. Préférer un emplacement aéré.",
+    "photos": [
+      "https://exemple.com/images/rosier-1.jpg",
+      "https://exemple.com/images/rosier-2.jpg",
+      "https://exemple.com/images/rosier-3.jpg"
+    ],
+    "external_links": [
+      {
+        "label": "Fiche Rustica",
+        "url": "https://www.rustica.fr/fleurs/rosier-grimpant,12345.html"
+      },
+      {
+        "label": "Fiche AuJardin.info",
+        "url": "https://www.aujardin.info/plantes/rosier-grimpant.php"
+      },
+      {
+        "label": "Wikipedia",
+        "url": "https://fr.wikipedia.org/wiki/Rose"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "common_name": "Lavande",
+    "scientific_name": "Lavandula angustifolia",
+    "family": "Lamiaceae",
+    "pruning_period": "Mars à avril",
+    "flowering_period": "Juin à août",
+    "care_tips": "Taille légère après floraison, sol bien drainé, plein soleil.",
+    "notes": "",
+    "photos": [
+      "/images/species/1/rosier-1.jpg",
+      "/images/species/1/rosier-2.jpg"
+    ],
+    "external_links": []
+  }
+]

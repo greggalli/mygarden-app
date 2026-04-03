@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "plant_instance_id": 101,
+    "zone_id": 1,
+    "due_date": "2025-05-15",
+    "action": "Arroser",
+    "status": "done",
+    "notes": "Après mise en place"
+  },
+  {
+    "id": 2,
+    "plant_instance_id": 101,
+    "zone_id": 1,
+    "due_date": "2025-06-01",
+    "action": "Tuteurer",
+    "status": "pending",
+    "notes": "Tuteur en bambou"
+  }
+]

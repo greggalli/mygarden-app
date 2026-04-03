@@ -1,0 +1,103 @@
+/* === Plant pages (liste + détails) === */
+
+/* --- Page de détail plantation --- */
+
+.plant-detail-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2.5rem;
+}
+
+.plant-detail-header {
+  margin-bottom: 0.75rem;
+}
+
+/* On réutilise .detail-title / .detail-subtitle définis globalement ou via species CSS */
+
+.plant-detail-page .detail-title {
+  margin-bottom: 0.25rem;
+}
+
+.plant-detail-page .detail-subtitle {
+  color: #555;
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Sous-titre : nom commun + nom scientifique de l'espèce */
+
+.plant-detail-sub {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.plant-detail-sci {
+  font-style: italic;
+  color: #777;
+}
+
+/* Section du bas : autres plantations de la même espèce */
+
+.plant-detail-other-instances {
+  margin-top: 1rem;
+}
+
+.plant-detail-other-instances .instance-list {
+  margin-top: 0.75rem;
+}
+
+.plant-detail-other-instances .instance-row {
+  width: 100%;
+  text-align: left;
+}
+
+/* Petit bouton-lien pour l'espèce cliquable */
+
+.link-button {
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: none;
+  color: #3366cc;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  text-decoration: none;
+}
+
+/* --- Harmonisation avec SpeciesDetailPage --- */
+/* === Harmonisation PlantDetail avec la fiche espèce === */
+
+/* Neutralise tout “gros cadre” éventuel autour de la page */
+.plant-detail-page {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Sous-titres */
+.plant-detail-sub {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+  color: #555;
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+.plant-detail-sci {
+  font-style: italic;
+  color: #777;
+}
+
+/* Petit espacement sous l’action “Voir la fiche espèce” dans le bloc botanique */
+.plant-botanic-actions {
+  margin-top: 0.75rem;
+}
+
