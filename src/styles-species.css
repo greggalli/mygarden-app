@@ -321,6 +321,62 @@
   margin-bottom: 2rem;
 }
 
+/* === Edition / création espèce === */
+
+.muted {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.species-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.species-edit-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.species-edit-link-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 220px) 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.species-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.species-delete-btn {
+  background: #b71c1c;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  border: none;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.species-delete-btn:hover {
+  background: #8f1313;
+}
+
+@media (max-width: 720px) {
+  .species-edit-link-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Grille pour le bloc botanique : photos + liens */
 .species-botanic-grid {
   display: grid;
