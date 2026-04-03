@@ -51,6 +51,7 @@ export default function App() {
 
             {/* Espèces */}
             <Route path="/species" element={<SpeciesListPage />} />
+            <Route path="/species/new" element={<SpeciesEditPage />} />
             <Route path="/species/:speciesId" element={<SpeciesDetailPage />} />
             <Route path="/species/:speciesId/edit" element={<SpeciesEditPage />} />
 
