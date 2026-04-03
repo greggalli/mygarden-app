@@ -117,7 +117,16 @@ export default function PlantsListPage() {
     <div className="plants-page">
       <div className="plants-header">
         <div className="plants-header-main">
-          <h2 className="section-title">Plantations</h2>
+          <div className="plants-title-row">
+            <h2 className="section-title">Plantations</h2>
+            <button
+              type="button"
+              className="btn-secondary plants-add-button"
+              onClick={() => navigate("/add-plant")}
+            >
+              Ajouter une plantation
+            </button>
+          </div>
           <div className="plants-stats">
             <span>
               {instances.length} plante
