@@ -238,8 +238,14 @@ export default function SpeciesListPage() {
                     {sp.scientific_name}
                   </span>
                 )}
+                {sp.family && (
+                  <span>
+                    {" "}
+                    ({sp.family})
+                  </span>
+                )}
               </div>
-
+              
               {/* Ligne 2 : périodes + zones + actions */}
               <div className="species-row-line2">
                 <div className="species-row-meta-left">
