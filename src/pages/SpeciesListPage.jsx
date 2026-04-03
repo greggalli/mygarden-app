@@ -1,6 +1,6 @@
 // src/pages/SpeciesListPage.jsx
 import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
 
 export default function SpeciesListPage() {
@@ -58,17 +58,20 @@ export default function SpeciesListPage() {
       const count = countMap.get(sp.id) || 0;
       const zoneSet = zoneMap.get(sp.id) || new Set();
 
-      const zoneNames = Array.from(zoneSet)
-        .map((zId) => zonesById.get(zId)?.name)
+      const zonesInfo = Array.from(zoneSet)
+        .map((zId) => zonesById.get(zId))
         .filter(Boolean)
         .sort((a, b) =>
-          a.localeCompare(b, "fr", { sensitivity: "base" })
+          a.name.localeCompare(b.name, "fr", { sensitivity: "base" })
         );
+
+      const firstPhoto = Array.isArray(sp.photos) ? sp.photos[0] : null;
 
       return {
         ...sp,
+        firstPhoto,
         instanceCount: count,
-        zoneNames
+        zonesInfo
       };
     });
   }, [species, speciesStats, zonesById]);
@@ -80,9 +83,7 @@ export default function SpeciesListPage() {
     if (zoneFilter !== "all") {
       const zId = Number(zoneFilter);
       list = list.filter((sp) =>
-        sp.zoneNames.some(
-          (name) => zonesById.get(zId)?.name === name
-        )
+        sp.zonesInfo.some((zone) => zone.id === zId)
       );
     }
 
@@ -114,7 +115,7 @@ export default function SpeciesListPage() {
     );
 
     return list;
-  }, [enrichedSpecies, zoneFilter, familyFilter, search, zonesById]);
+  }, [enrichedSpecies, zoneFilter, familyFilter, search]);
 
   const totalSpecies = species.length;
   const totalInstances = instances.length;
@@ -212,7 +213,22 @@ export default function SpeciesListPage() {
               }}
               tabIndex={0}
             >
-              {/* Ligne 1 : nom + famille + stats */}
+              <div className="species-row-thumb-wrap" aria-hidden="true">
+                {sp.firstPhoto ? (
+                  <img
+                    className="species-row-thumb"
+                    src={sp.firstPhoto}
+                    loading="lazy"
+                    alt=""
+                  />
+                ) : (
+                  <div className="species-row-thumb species-row-thumb-fallback">
+                    🌿
+                  </div>
+                )}
+              </div>
+
+              {/* Ligne 1 : nom + nom scientifique */}
               <div className="species-row-line1">
                 <span className="species-row-name">
                   <b>{sp.common_name}</b>
@@ -222,65 +238,68 @@ export default function SpeciesListPage() {
                     {sp.scientific_name}
                   </span>
                 )}
-                {sp.family && (
-                  <span className="species-row-family">
-                    ({sp.family})
-                  </span>
-                )}
-
-                <span className="species-row-count">
-                  {sp.instanceCount} plantation
-                  {sp.instanceCount > 1 ? "s" : ""}
-                </span>
-
-                {sp.zoneNames.length > 0 && (
-                  <span className="species-row-zones">
-                    Zones : {sp.zoneNames.join(", ")}
-                  </span>
-                )}
               </div>
 
-              {/* Ligne 2 : périodes */}
+              {/* Ligne 2 : périodes + zones + actions */}
               <div className="species-row-line2">
-                <span>
-                  🌿 Taille :{" "}
-                  {sp.pruning_period ? (
-                    sp.pruning_period
-                  ) : (
-                    <span className="muted">non renseignée</span>
-                  )}
-                </span>
-                <span>
-                  🌸 Floraison :{" "}
-                  {sp.flowering_period ? (
-                    sp.flowering_period
-                  ) : (
-                    <span className="muted">non renseignée</span>
-                  )}
-                </span>
+                <div className="species-row-meta-left">
+                  <span>
+                    ✂️ Taille :{" "}
+                    {sp.pruning_period ? (
+                      sp.pruning_period
+                    ) : (
+                      <span className="muted">non renseignée</span>
+                    )}
+                  </span>
+                  <span>
+                    🌸 Floraison :{" "}
+                    {sp.flowering_period ? (
+                      sp.flowering_period
+                    ) : (
+                      <span className="muted">non renseignée</span>
+                    )}
+                  </span>
+                  <span>
+                    📍 {sp.instanceCount} plantation
+                    {sp.instanceCount > 1 ? "s" : ""}
+                    {sp.zonesInfo.length > 0 ? " · " : ""}
+                    {sp.zonesInfo.map((zone, index) => (
+                      <React.Fragment key={zone.id}>
+                        {index > 0 ? ", " : ""}
+                        <Link
+                          className="species-row-zone-link"
+                          to={`/zones/${zone.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {zone.name}
+                        </Link>
+                      </React.Fragment>
+                    ))}
+                  </span>
+                </div>
+
+                <div
+                  className="species-row-actions"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    className="btn-secondary"
+                    onClick={() =>
+                      navigate(`/add-plant?speciesId=${sp.id}`)
+                    }
+                  >
+                    ➕ Ajouter une plantation
+                  </button>
+                  <button
+                    className="btn-icon-danger"
+                    title="Supprimer l'espèce"
+                    onClick={(e) => handleQuickDelete(e, sp)}
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
 
-              {/* Actions (sur une "3e" zone visuelle, à droite) */}
-              <div
-                className="species-row-actions"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  className="btn-secondary"
-                  onClick={() =>
-                    navigate(`/add-plant?speciesId=${sp.id}`)
-                  }
-                >
-                  ➕ Ajouter une plantation
-                </button>
-                <button
-                  className="btn-icon-danger"
-                  title="Supprimer l'espèce"
-                  onClick={(e) => handleQuickDelete(e, sp)}
-                >
-                  🗑️
-                </button>
-              </div>
             </article>
           ))
         )}
