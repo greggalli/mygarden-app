@@ -141,7 +141,16 @@ export default function SpeciesListPage() {
       {/* En-tête + stats */}
       <div className="species-header">
         <div className="species-header-main">
-          <h2 className="section-title">Espèces</h2>
+          <div className="plants-title-row">
+            <h2 className="section-title">Espèces</h2>
+            <button
+              type="button"
+              className="btn-secondary plants-add-button"
+              onClick={() => navigate("/species/new")}
+            >
+              Ajouter une espèce
+            </button>
+          </div>
           <div className="species-stats">
             <span>
               {totalSpecies} espèce

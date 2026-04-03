@@ -6,10 +6,13 @@ import { useGardenData } from "../data/GardenDataContext";
 export default function SpeciesEditPage() {
   const { speciesId } = useParams();
   const navigate = useNavigate();
-  const { data, updateSpecies, deleteSpecies } = useGardenData();
+  const { data, addSpecies, updateSpecies, deleteSpecies } = useGardenData();
   const { species, instances } = data;
+  const isCreateMode = !speciesId;
 
-  const sp = species.find((s) => s.id === Number(speciesId));
+  const sp = isCreateMode
+    ? null
+    : species.find((s) => s.id === Number(speciesId));
 
   // ✅ on initialise le state même si sp est undefined
   const [form, setForm] = useState({
@@ -22,7 +25,7 @@ export default function SpeciesEditPage() {
   });
 
   // ✅ tous les hooks sont déjà appelés, on peut maintenant conditionner le rendu
-  if (!sp) {
+  if (!isCreateMode && !sp) {
     return (
       <div className="plant-detail-page">
         <p>Espèce introuvable.</p>
@@ -33,9 +36,9 @@ export default function SpeciesEditPage() {
     );
   }
 
-  const instancesForSpecies = instances.filter(
-    (inst) => inst.species_id === sp.id
-  );
+  const instancesForSpecies = isCreateMode
+    ? []
+    : instances.filter((inst) => inst.species_id === sp.id);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -44,14 +47,29 @@ export default function SpeciesEditPage() {
 
   const handleSave = (e) => {
     e.preventDefault();
-    updateSpecies(sp.id, {
+
+    const payload = {
       common_name: form.common_name.trim(),
       scientific_name: form.scientific_name.trim(),
       sun_exposure: form.sun_exposure.trim(),
       water_need: form.water_need.trim(),
       care_notes: form.care_notes.trim(),
       photo_url: form.photo_url.trim()
-    });
+    };
+
+    if (isCreateMode) {
+      const maxId = species.length > 0 ? Math.max(...species.map((s) => s.id)) : 0;
+      const createdSpecies = {
+        id: maxId + 1,
+        ...payload
+      };
+      addSpecies(createdSpecies);
+      alert("Espèce ajoutée.");
+      navigate(`/species/${createdSpecies.id}`);
+      return;
+    }
+
+    updateSpecies(sp.id, payload);
     alert("Espèce mise à jour.");
     navigate(`/species/${sp.id}`);
   };
@@ -73,7 +91,9 @@ export default function SpeciesEditPage() {
 
   return (
     <div className="plant-detail-page">
-      <h2>Modifier l'espèce : {sp.common_name}</h2>
+      <h2>
+        {isCreateMode ? "Ajouter une espèce" : `Modifier l'espèce : ${sp.common_name}`}
+      </h2>
 
       <form onSubmit={handleSave} className="species-form">
         <label>
@@ -138,29 +158,33 @@ export default function SpeciesEditPage() {
         </label>
 
         <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-          <button type="submit">💾 Enregistrer</button>
-          <button
-            type="button"
-            style={{
-              background: "#b71c1c",
-              color: "#fff",
-              borderRadius: "8px",
-              padding: "0.4rem 0.8rem",
-              border: "none"
-            }}
-            onClick={handleDelete}
-          >
-            🗑️ Supprimer l'espèce
+          <button type="submit">
+            {isCreateMode ? "➕ Ajouter l'espèce" : "💾 Enregistrer"}
           </button>
+          {!isCreateMode && (
+            <button
+              type="button"
+              style={{
+                background: "#b71c1c",
+                color: "#fff",
+                borderRadius: "8px",
+                padding: "0.4rem 0.8rem",
+                border: "none"
+              }}
+              onClick={handleDelete}
+            >
+              🗑️ Supprimer l'espèce
+            </button>
+          )}
         </div>
       </form>
 
       <Link
-        to={`/species/${sp.id}`}
+        to={isCreateMode ? "/species" : `/species/${sp.id}`}
         className="back-link"
         style={{ marginTop: "0.75rem", display: "inline-block" }}
       >
-        ← Retour à la fiche
+        {isCreateMode ? "← Retour à la liste des espèces" : "← Retour à la fiche"}
       </Link>
     </div>
   );
