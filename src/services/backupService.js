@@ -59,20 +59,21 @@ function inferFilename(imageRef, fallbackBaseName) {
 }
 
 function normalizeBackupRoot(payload) {
-  if (payload && typeof payload === "object" && payload.data) {
-    return payload;
-  }
+  const data = payload?.data && typeof payload.data === "object" ? payload.data : payload;
 
   return {
-    version: 1,
-    exportedAt: null,
-    warnings: [],
+    version:
+      payload && Number.isInteger(payload.version) && payload.version > 0
+        ? payload.version
+        : 1,
+    exportedAt: payload?.exportedAt || null,
+    warnings: Array.isArray(payload?.warnings) ? payload.warnings : [],
     data: {
-      zones: payload?.zones,
-      species: payload?.species,
-      plantations: payload?.instances,
-      tasks: payload?.tasks,
-      images: payload?.images || []
+      zones: data?.zones,
+      species: data?.species,
+      plantations: data?.plantations ?? data?.instances,
+      tasks: data?.tasks,
+      images: data?.images || []
     }
   };
 }

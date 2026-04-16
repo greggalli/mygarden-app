@@ -1,4 +1,4 @@
-import { validateBackupPayload } from "./backupService";
+import { parseBackupFile, validateBackupPayload } from "./backupService";
 
 describe("validateBackupPayload", () => {
   it("accepts a valid payload", () => {
@@ -76,5 +76,31 @@ describe("validateBackupPayload", () => {
         }
       })
     ).toThrow(/dataUrl/);
+  });
+});
+
+
+describe("parseBackupFile", () => {
+  it("accepts backups using data.instances (legacy naming)", async () => {
+    const file = {
+      text: async () =>
+        JSON.stringify({
+          version: 1,
+          data: {
+            zones: [],
+            species: [],
+            instances: [],
+            tasks: [],
+            images: []
+          }
+        })
+    };
+
+    await expect(parseBackupFile(file)).resolves.toEqual({
+      zones: [],
+      species: [],
+      instances: [],
+      tasks: []
+    });
   });
 });
