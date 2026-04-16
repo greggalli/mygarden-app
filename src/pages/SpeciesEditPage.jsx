@@ -92,7 +92,7 @@ export default function SpeciesEditPage() {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
 
     const cleanedExternalLinks = [];
@@ -129,18 +129,18 @@ export default function SpeciesEditPage() {
         id: nextSpeciesId,
         ...payload
       };
-      addSpecies(createdSpecies);
+      await addSpecies(createdSpecies);
       alert("Espèce ajoutée.");
       navigate(`/species/${createdSpecies.id}`);
       return;
     }
 
-    updateSpecies(sp.id, payload);
+    await updateSpecies(sp.id, payload);
     alert("Espèce mise à jour.");
     navigate(`/species/${sp.id}`);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (instancesForSpecies.length > 0) {
       alert(
         "Impossible de supprimer cette espèce : il existe encore des plantations associées."
@@ -151,7 +151,7 @@ export default function SpeciesEditPage() {
       `Supprimer définitivement l'espèce "${sp.common_name}" ?`
     );
     if (!ok) return;
-    deleteSpecies(sp.id);
+    await deleteSpecies(sp.id);
     navigate("/species");
   };
 

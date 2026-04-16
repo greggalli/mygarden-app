@@ -111,13 +111,13 @@ export default function PlantsListPage() {
     return list;
   }, [enriched, search, zoneFilter, speciesFilter, sortBy]);
 
-  const handleQuickDelete = (e, row) => {
+  const handleQuickDelete = async (e, row) => {
     e.stopPropagation(); // ne pas faire naviguer vers la fiche
     const ok = window.confirm(
       `Supprimer définitivement la plantation "${row.nickname}" ?`
     );
     if (!ok) return;
-    deletePlantInstance(row.id);
+    await deletePlantInstance(row.id);
   };
 
   return (

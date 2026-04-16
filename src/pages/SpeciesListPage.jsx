@@ -121,7 +121,7 @@ export default function SpeciesListPage() {
   const totalInstances = instances.length;
 
   // Suppression rapide
-  const handleQuickDelete = (e, sp) => {
+  const handleQuickDelete = async (e, sp) => {
     e.stopPropagation(); // ne pas naviguer vers le détail
     if (sp.instanceCount > 0) {
       alert(
@@ -133,7 +133,7 @@ export default function SpeciesListPage() {
       `Supprimer définitivement l'espèce "${sp.common_name}" ?`
     );
     if (!ok) return;
-    deleteSpecies(sp.id);
+    await deleteSpecies(sp.id);
   };
 
   return (

@@ -6,60 +6,93 @@ import speciesJson from "./species.json";
 import instancesJson from "./instances.json";
 import tasksJson from "./tasks.json";
 
-const STORAGE_KEY = "mygarden-data-v1";
+import {
+  deletePlantationById,
+  savePlantation
+} from "../repositories/plantationsRepository";
+import {
+  deleteSpeciesById,
+  saveSpecies
+} from "../repositories/speciesRepository";
+import {
+  exportBackupFile,
+  importBackupFile
+} from "../services/backupService";
+import {
+  initializePersistence,
+  readAllData
+} from "../services/persistenceService";
+
 const GardenDataContext = createContext(null);
 
-export function GardenDataProvider({ children }) {
-  const [data, setData] = useState({
-    zones: zonesJson,
-    species: speciesJson,
-    instances: instancesJson,
-    tasks: tasksJson
-  });
+const initialData = {
+  zones: zonesJson,
+  species: speciesJson,
+  instances: instancesJson,
+  tasks: tasksJson
+};
 
-  // chargement initial localStorage
+export function GardenDataProvider({ children }) {
+  const [data, setData] = useState(initialData);
+  const [isDataReady, setIsDataReady] = useState(false);
+
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.zones && parsed.species && parsed.instances && parsed.tasks) {
-          setData(parsed);
+    let isActive = true;
+
+    async function boot() {
+      try {
+        const dataset = await initializePersistence();
+        if (isActive) {
+          setData(dataset);
+        }
+      } catch (error) {
+        console.warn("Erreur d'initialisation IndexedDB:", error);
+      } finally {
+        if (isActive) {
+          setIsDataReady(true);
         }
       }
-    } catch (e) {
-      console.warn("Erreur chargement données localStorage:", e);
     }
+
+    boot();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
-  // persistance
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (e) {
-      console.warn("Erreur sauvegarde données localStorage:", e);
-    }
-  }, [data]);
+  const refreshDataFromDb = async () => {
+    const latest = await readAllData();
+    setData(latest);
+    return latest;
+  };
 
   // === Mutations espèces ===
-
-  const addSpecies = (newSpecies) => {
+  const addSpecies = async (newSpecies) => {
+    await saveSpecies(newSpecies);
     setData((current) => ({
       ...current,
       species: [...current.species, newSpecies]
     }));
   };
 
-  const updateSpecies = (id, partial) => {
+  const updateSpecies = async (id, partial) => {
+    const currentSpecies = data.species.find((sp) => sp.id === id);
+    if (!currentSpecies) {
+      return;
+    }
+
+    const updatedSpecies = { ...currentSpecies, ...partial };
+    await saveSpecies(updatedSpecies);
+
     setData((current) => ({
       ...current,
-      species: current.species.map((sp) =>
-        sp.id === id ? { ...sp, ...partial } : sp
-      )
+      species: current.species.map((sp) => (sp.id === id ? updatedSpecies : sp))
     }));
   };
 
-  const deleteSpecies = (id) => {
+  const deleteSpecies = async (id) => {
+    await deleteSpeciesById(id);
     setData((current) => ({
       ...current,
       species: current.species.filter((sp) => sp.id !== id)
@@ -69,39 +102,61 @@ export function GardenDataProvider({ children }) {
   };
 
   // === Mutations plantations (instances) ===
-
-  const addPlantInstance = (newInstance) => {
+  const addPlantInstance = async (newInstance) => {
+    await savePlantation(newInstance);
     setData((current) => ({
       ...current,
       instances: [...current.instances, newInstance]
     }));
   };
 
-  const updatePlantInstance = (id, partial) => {
+  const updatePlantInstance = async (id, partial) => {
+    const currentInstance = data.instances.find((inst) => inst.id === id);
+    if (!currentInstance) {
+      return;
+    }
+
+    const updatedInstance = { ...currentInstance, ...partial };
+    await savePlantation(updatedInstance);
+
     setData((current) => ({
       ...current,
       instances: current.instances.map((inst) =>
-        inst.id === id ? { ...inst, ...partial } : inst
+        inst.id === id ? updatedInstance : inst
       )
     }));
   };
 
-  const deletePlantInstance = (id) => {
+  const deletePlantInstance = async (id) => {
+    await deletePlantationById(id);
     setData((current) => ({
       ...current,
       instances: current.instances.filter((inst) => inst.id !== id)
     }));
   };
 
+  const exportDataBackup = async () => {
+    await exportBackupFile();
+  };
+
+  const importDataBackup = async (file) => {
+    await importBackupFile(file);
+    await refreshDataFromDb();
+  };
+
   const value = {
     data,
     setData,
+    isDataReady,
     addSpecies,
     updateSpecies,
     deleteSpecies,
     addPlantInstance,
     updatePlantInstance,
-    deletePlantInstance
+    deletePlantInstance,
+    refreshDataFromDb,
+    exportDataBackup,
+    importDataBackup
   };
 
   return (
