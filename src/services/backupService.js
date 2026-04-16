@@ -117,6 +117,24 @@ export function validateBackupPayload(payload) {
     throw new Error("Le fichier de sauvegarde est invalide: data.tasks doit être un tableau.");
   }
 
+  }
+
+  if (!isArray(payload.data.zones)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.zones doit être un tableau.");
+  }
+
+  if (!isArray(payload.data.species)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.species doit être un tableau.");
+  }
+
+  if (!isArray(payload.data.plantations)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.plantations doit être un tableau.");
+  }
+
+  if (!isArray(payload.data.tasks)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.tasks doit être un tableau.");
+  }
+
   if (!isArray(payload.data.images)) {
     throw new Error("Le fichier de sauvegarde est invalide: data.images doit être un tableau.");
   }
@@ -175,6 +193,20 @@ async function serializeSpeciesImages(speciesList) {
           field: "photos",
           index,
           fallbackName: `species-${sp.id}-photo-${index + 1}`
+        const photoRef = currentPhotos[index];
+        const blob = await imageRefToBlob(photoRef);
+        const dataUrl = await blobToDataUrl(blob);
+        const filename = inferFilename(photoRef, `species-${sp.id}-photo-${index + 1}`);
+
+        images.push({
+          id: `species-${sp.id}-photos-${index}`,
+          entityType: "species",
+          entityId: sp.id,
+          field: "photos",
+          index,
+          filename,
+          mimeType: normalizeMimeType(blob.type, filename),
+          dataUrl
         });
       }
 
@@ -185,6 +217,19 @@ async function serializeSpeciesImages(speciesList) {
           field: "photo_url",
           index: 0,
           fallbackName: `species-${sp.id}-cover`
+        const blob = await imageRefToBlob(sp.photo_url);
+        const dataUrl = await blobToDataUrl(blob);
+        const filename = inferFilename(sp.photo_url, `species-${sp.id}-cover`);
+
+        images.push({
+          id: `species-${sp.id}-photo_url`,
+          entityType: "species",
+          entityId: sp.id,
+          field: "photo_url",
+          index: 0,
+          filename,
+          mimeType: normalizeMimeType(blob.type, filename),
+          dataUrl
         });
       }
 
@@ -199,6 +244,7 @@ async function serializeSpeciesImages(speciesList) {
     species: serializedSpecies,
     images,
     warnings
+    images
   };
 }
 
