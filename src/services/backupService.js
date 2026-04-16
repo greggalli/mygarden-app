@@ -26,6 +26,14 @@ function normalizePathImageUrl(url) {
   }
 }
 
+function isCrossOrigin(url) {
+  try {
+    return new URL(url).origin !== window.location.origin;
+  } catch (_error) {
+    return false;
+  }
+}
+
 async function imageRefToBlob(imageRef) {
   if (isDataUrl(imageRef)) {
     return dataUrlToBlob(imageRef);
@@ -36,6 +44,9 @@ async function imageRefToBlob(imageRef) {
     throw new Error(`Référence image invalide: ${imageRef}`);
   }
 
+  if (isCrossOrigin(resolvedUrl)) {
+    throw new Error(`Image distante non exportable sans CORS: ${imageRef}`);
+  }
 
   const response = await fetch(resolvedUrl);
   if (!response.ok) {
@@ -88,6 +99,24 @@ export function validateBackupPayload(payload) {
 
   if (!Number.isInteger(payload.version) || payload.version < 1) {
     throw new Error("Version de sauvegarde invalide.");
+  }
+
+  if (!isArray(payload.data.zones)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.zones doit être un tableau.");
+  }
+
+  if (!isArray(payload.data.species)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.species doit être un tableau.");
+  }
+
+  if (!isArray(payload.data.plantations)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.plantations doit être un tableau.");
+  }
+
+  if (!isArray(payload.data.tasks)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.tasks doit être un tableau.");
+  }
+
   }
 
   if (!isArray(payload.data.zones)) {
@@ -164,6 +193,20 @@ async function serializeSpeciesImages(speciesList) {
           field: "photos",
           index,
           fallbackName: `species-${sp.id}-photo-${index + 1}`
+        const photoRef = currentPhotos[index];
+        const blob = await imageRefToBlob(photoRef);
+        const dataUrl = await blobToDataUrl(blob);
+        const filename = inferFilename(photoRef, `species-${sp.id}-photo-${index + 1}`);
+
+        images.push({
+          id: `species-${sp.id}-photos-${index}`,
+          entityType: "species",
+          entityId: sp.id,
+          field: "photos",
+          index,
+          filename,
+          mimeType: normalizeMimeType(blob.type, filename),
+          dataUrl
         });
       }
 
@@ -174,6 +217,19 @@ async function serializeSpeciesImages(speciesList) {
           field: "photo_url",
           index: 0,
           fallbackName: `species-${sp.id}-cover`
+        const blob = await imageRefToBlob(sp.photo_url);
+        const dataUrl = await blobToDataUrl(blob);
+        const filename = inferFilename(sp.photo_url, `species-${sp.id}-cover`);
+
+        images.push({
+          id: `species-${sp.id}-photo_url`,
+          entityType: "species",
+          entityId: sp.id,
+          field: "photo_url",
+          index: 0,
+          filename,
+          mimeType: normalizeMimeType(blob.type, filename),
+          dataUrl
         });
       }
 
@@ -188,6 +244,7 @@ async function serializeSpeciesImages(speciesList) {
     species: serializedSpecies,
     images,
     warnings
+    images
   };
 }
 
