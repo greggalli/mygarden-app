@@ -128,6 +128,7 @@ src/
 
 - IndexedDB dépend du navigateur (effacement possible si l'utilisateur purge les données de site).
 - Le backup est volontairement simple et mono-utilisateur (pas de fusion de datasets).
+- Les images hébergées sur des domaines externes sans CORS ne peuvent pas être sérialisées en Base64 et sont conservées comme références URL (signalées via warning à l'export).
 - Le format JSON est versionné (`version: 1`) pour préparer de futures évolutions.
 
 ---

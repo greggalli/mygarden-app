@@ -26,6 +26,14 @@ function normalizePathImageUrl(url) {
   }
 }
 
+function isCrossOrigin(url) {
+  try {
+    return new URL(url).origin !== window.location.origin;
+  } catch (_error) {
+    return false;
+  }
+}
+
 async function imageRefToBlob(imageRef) {
   if (isDataUrl(imageRef)) {
     return dataUrlToBlob(imageRef);
@@ -34,6 +42,10 @@ async function imageRefToBlob(imageRef) {
   const resolvedUrl = normalizePathImageUrl(imageRef);
   if (!resolvedUrl) {
     throw new Error(`Référence image invalide: ${imageRef}`);
+  }
+
+  if (isCrossOrigin(resolvedUrl)) {
+    throw new Error(`Image distante non exportable sans CORS: ${imageRef}`);
   }
 
   const response = await fetch(resolvedUrl);
@@ -65,6 +77,7 @@ function normalizeBackupRoot(payload) {
   return {
     version: 1,
     exportedAt: null,
+    warnings: [],
     data: {
       zones: payload?.zones,
       species: payload?.species,
@@ -86,6 +99,24 @@ export function validateBackupPayload(payload) {
 
   if (!Number.isInteger(payload.version) || payload.version < 1) {
     throw new Error("Version de sauvegarde invalide.");
+  }
+
+  if (!isArray(payload.data.zones)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.zones doit être un tableau.");
+  }
+
+  if (!isArray(payload.data.species)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.species doit être un tableau.");
+  }
+
+  if (!isArray(payload.data.plantations)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.plantations doit être un tableau.");
+  }
+
+  if (!isArray(payload.data.tasks)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.tasks doit être un tableau.");
+  }
+
   }
 
   if (!isArray(payload.data.zones)) {
@@ -128,12 +159,40 @@ export function validateBackupPayload(payload) {
 
 async function serializeSpeciesImages(speciesList) {
   const images = [];
+  const warnings = [];
+
+  async function trySerializeImage({ imageRef, speciesId, field, index = 0, fallbackName }) {
+    try {
+      const blob = await imageRefToBlob(imageRef);
+      const dataUrl = await blobToDataUrl(blob);
+      const filename = inferFilename(imageRef, fallbackName);
+
+      images.push({
+        id: `species-${speciesId}-${field}-${index}`,
+        entityType: "species",
+        entityId: speciesId,
+        field,
+        index,
+        filename,
+        mimeType: normalizeMimeType(blob.type, filename),
+        dataUrl
+      });
+    } catch (error) {
+      warnings.push(`Image ignorée (${field}) pour l'espèce ${speciesId}: ${error.message}`);
+    }
+  }
 
   const serializedSpecies = await Promise.all(
     speciesList.map(async (sp) => {
       const currentPhotos = isArray(sp.photos) ? sp.photos : [];
 
       for (let index = 0; index < currentPhotos.length; index += 1) {
+        await trySerializeImage({
+          imageRef: currentPhotos[index],
+          speciesId: sp.id,
+          field: "photos",
+          index,
+          fallbackName: `species-${sp.id}-photo-${index + 1}`
         const photoRef = currentPhotos[index];
         const blob = await imageRefToBlob(photoRef);
         const dataUrl = await blobToDataUrl(blob);
@@ -152,6 +211,12 @@ async function serializeSpeciesImages(speciesList) {
       }
 
       if (sp.photo_url) {
+        await trySerializeImage({
+          imageRef: sp.photo_url,
+          speciesId: sp.id,
+          field: "photo_url",
+          index: 0,
+          fallbackName: `species-${sp.id}-cover`
         const blob = await imageRefToBlob(sp.photo_url);
         const dataUrl = await blobToDataUrl(blob);
         const filename = inferFilename(sp.photo_url, `species-${sp.id}-cover`);
@@ -177,6 +242,8 @@ async function serializeSpeciesImages(speciesList) {
 
   return {
     species: serializedSpecies,
+    images,
+    warnings
     images
   };
 }
@@ -222,6 +289,7 @@ export async function buildBackupPayload() {
   return {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
+    warnings: serialized.warnings,
     data: {
       zones: dataset.zones,
       species: serialized.species,
@@ -240,6 +308,8 @@ export async function exportBackupFile() {
     json,
     `mygarden-backup-${new Date().toISOString().slice(0, 10)}.json`
   );
+
+  return { warnings: payload.warnings || [] };
 }
 
 export async function parseBackupFile(file) {
