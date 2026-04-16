@@ -3,6 +3,13 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
 
+function formatPlantingDate(dateString) {
+  if (!dateString) return "";
+  const parsed = new Date(`${dateString}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return dateString;
+  return parsed.toLocaleDateString("fr-FR");
+}
+
 export default function PlantsListPage() {
   const navigate = useNavigate();
   const { data, deletePlantInstance } = useGardenData();
@@ -196,49 +203,80 @@ export default function PlantsListPage() {
           </div>
         ) : (
           filteredAndSorted.map((row) => (
-            <button
+            <article
               key={row.id}
-              className="instance-row"
+              className="instance-row instance-row-compact instance-row-clickable"
               onClick={() => navigate(`/plants/${row.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/plants/${row.id}`);
+                }
+              }}
+              tabIndex={0}
             >
-              <div className="instance-row-main">
-                <div className="instance-title">
-                  <span className="instance-nickname">
-                    {row.nickname}
+              <div className="instance-row-thumb-wrap" aria-hidden="true">
+                {row._species?.photos?.[0] ? (
+                  <img
+                    className="instance-row-thumb"
+                    src={row._species.photos[0]}
+                    loading="lazy"
+                    alt=""
+                  />
+                ) : (
+                  <div className="instance-row-thumb instance-row-thumb-fallback">
+                    🌿
+                  </div>
+                )}
+              </div>
+
+              <div className="instance-row-line1">
+                <span className="instance-nickname">
+                  <b>{row.nickname}</b>
+                </span>
+                {row._species && (
+                  <span className="instance-species">
+                    {row._species.common_name}
                   </span>
-                  {row._species && (
-                    <span className="instance-species">
-                      {row._species.common_name}
-                    </span>
-                  )}
-                </div>
-                <div className="instance-meta">
+                )}
+              </div>
+
+              <div className="instance-row-line2">
+                <div className="instance-row-meta-left">
                   {row._zone && (
                     <span className="instance-zone">
-                      {row._zone.name}
+                      🗺️ {row._zone.name}
                     </span>
                   )}
                   {row.planting_date && (
                     <span className="instance-date">
-                      Plantée le {row.planting_date}
+                      📅 Plantée le {formatPlantingDate(row.planting_date)}
                     </span>
                   )}
                 </div>
-              </div>
 
-              <div
-                className="instance-actions"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  className="btn-icon-danger"
-                  title="Supprimer la plantation"
-                  onClick={(e) => handleQuickDelete(e, row)}
+                <div
+                  className="instance-actions instance-row-actions"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  🗑️
-                </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => navigate(`/plants/${row.id}/edit`)}
+                  >
+                    ✏️ Modifier
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icon-danger"
+                    title="Supprimer la plantation"
+                    onClick={(e) => handleQuickDelete(e, row)}
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
-            </button>
+            </article>
           ))
         )}
       </div>
