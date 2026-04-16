@@ -245,7 +245,7 @@ export default function PlantsListPage() {
                 <div className="instance-row-meta-left">
                   {row._zone && (
                     <span className="instance-zone">
-                      🗺️ {row._zone.name}
+                      📍 {row._zone.name}
                     </span>
                   )}
                   {row.planting_date && (
