@@ -136,7 +136,7 @@ export function GardenDataProvider({ children }) {
   };
 
   const exportDataBackup = async () => {
-    await exportBackupFile();
+    return exportBackupFile();
   };
 
   const importDataBackup = async (file) => {

@@ -12,8 +12,14 @@ export default function AdminPage() {
     setStatus("");
 
     try {
-      await exportDataBackup();
-      setStatus("Sauvegarde exportée avec succès.");
+      const result = await exportDataBackup();
+      const warnings = result?.warnings || [];
+
+      if (warnings.length > 0) {
+        setStatus(`Sauvegarde exportée avec ${warnings.length} image(s) ignorée(s).`);
+      } else {
+        setStatus("Sauvegarde exportée avec succès.");
+      }
     } catch (error) {
       setStatus(`Échec de l'export: ${error.message}`);
     } finally {

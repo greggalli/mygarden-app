@@ -84,18 +84,51 @@ src/
 ## 🔁 Backup / Restore JSON
 
 - Depuis la page **Admin** (`/admin`) :
-  - **Export JSON** : exporte toutes les données (zones, species, instances, tasks) dans un fichier `mygarden-backup-YYYY-MM-DD.json`.
-  - **Import JSON** : lit un fichier de backup, valide sa structure (`zones`, `species`, `instances`, `tasks`), puis remplace les données locales.
+  - **Export JSON** : exporte toutes les données dans un fichier unique `mygarden-backup-YYYY-MM-DD.json`.
+  - **Import JSON** : lit un fichier de backup, valide sa structure puis remplace les données locales après confirmation.
+- Format de sauvegarde (`version: 1`) :
+
+```json
+{
+  "version": 1,
+  "exportedAt": "ISO_DATE",
+  "data": {
+    "zones": [],
+    "species": [],
+    "plantations": [],
+    "tasks": [],
+    "images": [
+      {
+        "id": "species-2-photos-0",
+        "entityType": "species",
+        "entityId": 2,
+        "field": "photos",
+        "index": 0,
+        "filename": "rose.jpg",
+        "mimeType": "image/jpeg",
+        "dataUrl": "data:image/jpeg;base64,..."
+      }
+    ]
+  }
+}
+```
+
+- Gestion des images :
+  - export: chaque image référencée par une espèce (`photos`/`photo_url`) est convertie en **data URL Base64**.
+  - import: chaque `dataUrl` est validée, convertie en `Blob`/`File`, puis restaurée en URL image persistée dans les données de l'app.
 - Flux d'import sécurisé :
   1. sélection du fichier
   2. confirmation utilisateur
-  3. parsing + validation
-  4. remplacement complet des stores IndexedDB
+  3. parsing JSON
+  4. validation de structure + images
+  5. transformation des images
+  6. remplacement complet des stores IndexedDB
 
 ## ⚠️ Limites / compatibilité
 
 - IndexedDB dépend du navigateur (effacement possible si l'utilisateur purge les données de site).
 - Le backup est volontairement simple et mono-utilisateur (pas de fusion de datasets).
+- Les images hébergées sur des domaines externes sans CORS ne peuvent pas être sérialisées en Base64 et sont conservées comme références URL (signalées via warning à l'export).
 - Le format JSON est versionné (`version: 1`) pour préparer de futures évolutions.
 
 ---
