@@ -857,9 +857,7 @@ button {
 }
 
 .instance-nickname {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #1a1a1a;
+  font-size: 0.85rem;
 }
 
 .instance-species {
