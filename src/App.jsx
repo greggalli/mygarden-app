@@ -18,6 +18,7 @@ import SpeciesDetailPage from "./pages/SpeciesDetailPage";
 import SpeciesEditPage from "./pages/SpeciesEditPage";
 import AddPlantPage from "./pages/AddPlantPage";
 import SchedulePage from "./pages/SchedulePage";
+import AdminPage from "./pages/AdminPage";
 
 export default function App() {
   return (
@@ -66,8 +67,8 @@ export default function App() {
             {/* ajout */}
             <Route path="/add-plant" element={<AddPlantPage />} />
 
-            {/* admin (placeholder pour l'instant) */}
-            <Route path="/admin" element={<div>Admin (à venir)</div>} />
+            {/* admin */}
+            <Route path="/admin" element={<AdminPage />} />
 
             <Route path="*" element={<div>Page inconnue</div>} />
           </Routes>

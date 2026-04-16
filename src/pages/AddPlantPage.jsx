@@ -32,7 +32,7 @@ export default function AddPlantPage() {
     setPlantForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePlantSubmit = (e) => {
+  const handlePlantSubmit = async (e) => {
     e.preventDefault();
 
     const maxId =
@@ -58,7 +58,7 @@ export default function AddPlantPage() {
       return;
     }
 
-    addPlantInstance(newPlant);
+    await addPlantInstance(newPlant);
     navigate("/plants");
   };
 

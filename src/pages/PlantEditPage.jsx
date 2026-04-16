@@ -42,7 +42,7 @@ export default function PlantEditPage() {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
 
     if (!form.species_id || !form.zone_id || !form.nickname.trim()) {
@@ -50,7 +50,7 @@ export default function PlantEditPage() {
       return;
     }
 
-    updatePlantInstance(inst.id, {
+    await updatePlantInstance(inst.id, {
       species_id: form.species_id,
       zone_id: form.zone_id,
       nickname: form.nickname.trim(),
@@ -62,13 +62,13 @@ export default function PlantEditPage() {
     navigate(`/plants/${inst.id}`);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     const ok = window.confirm(
       `Supprimer définitivement la plantation "${inst.nickname}" ?`
     );
     if (!ok) return;
 
-    deletePlantInstance(inst.id);
+    await deletePlantInstance(inst.id);
     navigate("/plants");
   };
 
