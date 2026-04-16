@@ -1,4 +1,4 @@
-import { validateBackupPayload } from "./backupService";
+import { parseBackupFile, validateBackupPayload } from "./backupService";
 
 describe("validateBackupPayload", () => {
   it("accepts a valid payload", () => {
@@ -17,6 +17,30 @@ describe("validateBackupPayload", () => {
     expect(() => validateBackupPayload(payload)).not.toThrow();
   });
 
+
+  it("accepts image entries with entityId set to 0", () => {
+    expect(() =>
+      validateBackupPayload({
+        version: 1,
+        data: {
+          zones: [],
+          species: [],
+          plantations: [],
+          tasks: [],
+          images: [
+            {
+              id: "img-0",
+              entityType: "species",
+              entityId: 0,
+              filename: "zero.jpg",
+              mimeType: "image/jpeg",
+              dataUrl: "data:image/jpeg;base64,AA=="
+            }
+          ]
+        }
+      })
+    ).not.toThrow();
+  });
   it("rejects payloads with missing arrays", () => {
     expect(() =>
       validateBackupPayload({
