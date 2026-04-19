@@ -71,6 +71,13 @@ function withResolvedSpeciesPhotos(dataset) {
   };
 }
 
+function toStoredSpecies(species) {
+  return {
+    ...species,
+    photos: Array.isArray(species.photos) ? species.photos.filter(Boolean) : []
+  };
+}
+
 export function GardenDataProvider({ children }) {
   const [data, setData] = useState(initialData);
   const [isDataReady, setIsDataReady] = useState(false);
