@@ -1,12 +1,8 @@
 // src/pages/SpeciesEditPage.jsx
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
-import {
-  fileToDataUrl,
-  isSupportedImageFile,
-  normalizeMimeType
-} from "../utils/imageSerialization";
+import { isSupportedImageFile } from "../utils/imageSerialization";
 
 const buildInitialForm = (species, speciesPhotos) => ({
   common_name: species?.common_name || "",
@@ -36,20 +32,20 @@ function buildInitialPhotos(species, speciesPhotos) {
       filename: photo.filename,
       mimeType: photo.mimeType,
       size: photo.size,
-      imageData: photo.imageData,
+      imageUrl: photo.imageUrl,
       createdAt: photo.createdAt,
       kind: "entity"
     }));
 
-  const entityDataUrls = new Set(linkedEntities.map((photo) => photo.imageData));
+  const entityUrls = new Set(linkedEntities.map((photo) => photo.imageUrl));
   const legacyPhotos = (species.photos || [])
-    .filter((photoUrl) => photoUrl && !entityDataUrls.has(photoUrl))
+    .filter((photoUrl) => photoUrl && !entityUrls.has(photoUrl))
     .map((photoUrl, index) => ({
       id: `legacy-${species.id}-${index}`,
       filename: `photo-${index + 1}`,
       mimeType: "",
       size: null,
-      imageData: photoUrl,
+      imageUrl: photoUrl,
       kind: "legacy"
     }));
 
@@ -63,12 +59,12 @@ export default function SpeciesEditPage() {
     data,
     addSpecies,
     updateSpecies,
-    replaceSpeciesPhotos,
+    addSpeciesPhotoFiles,
+    removeSpeciesPhoto,
     deleteSpecies
   } = useGardenData();
   const { species, speciesPhotos, instances } = data;
   const isCreateMode = !speciesId;
-  const nextSpeciesId = species.length > 0 ? Math.max(...species.map((s) => s.id)) + 1 : 1;
 
   const sp = isCreateMode
     ? null
@@ -76,6 +72,11 @@ export default function SpeciesEditPage() {
 
   const [form, setForm] = useState(buildInitialForm(sp, speciesPhotos));
   const [photoFeedback, setPhotoFeedback] = useState("");
+
+  const initialEntityPhotoIds = useMemo(
+    () => new Set((speciesPhotos || []).filter((photo) => photo.speciesId === sp?.id).map((photo) => photo.id)),
+    [speciesPhotos, sp]
+  );
 
   if (!isCreateMode && !sp) {
     return (
@@ -117,19 +118,14 @@ export default function SpeciesEditPage() {
         continue;
       }
 
-      try {
-        const dataUrl = await fileToDataUrl(file);
-        imported.push({
-          id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          filename: file.name || "photo",
-          mimeType: normalizeMimeType(file.type, file.name || ""),
-          size: file.size || null,
-          imageData: dataUrl,
-          kind: "new"
-        });
-      } catch (_error) {
-        rejected.push(`${file.name || "Fichier sans nom"} (lecture impossible)`);
-      }
+      imported.push({
+        id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        filename: file.name || "photo",
+        size: file.size || null,
+        file,
+        imageUrl: URL.createObjectURL(file),
+        kind: "new"
+      });
     }
 
     if (imported.length > 0) {
@@ -195,7 +191,7 @@ export default function SpeciesEditPage() {
       notes: form.notes.trim(),
       photos: form.photos
         .filter((photo) => photo.kind === "legacy")
-        .map((photo) => (photo.imageData || "").trim())
+        .map((photo) => (photo.imageUrl || "").trim())
         .filter(Boolean),
       external_links: cleanedExternalLinks
     };
@@ -205,39 +201,40 @@ export default function SpeciesEditPage() {
       return;
     }
 
-    const targetSpeciesId = isCreateMode ? nextSpeciesId : sp.id;
-    const speciesPhotoRecords = form.photos
-      .filter((photo) => photo.kind !== "legacy")
-      .map((photo, index) => ({
-        id:
-          photo.kind === "entity"
-            ? photo.id
-            : `species-photo-${targetSpeciesId}-${Date.now()}-${index}-${Math.random()
-                .toString(36)
-                .slice(2, 8)}`,
-        speciesId: targetSpeciesId,
-        filename: photo.filename || `photo-${index + 1}.jpg`,
-        mimeType: normalizeMimeType(photo.mimeType, photo.filename || ""),
-        size: typeof photo.size === "number" ? photo.size : null,
-        imageData: photo.imageData,
-        createdAt: photo.createdAt || new Date().toISOString(),
-        sortOrder: index
-      }));
+    const newFiles = form.photos
+      .filter((photo) => photo.kind === "new" && photo.file)
+      .map((photo) => photo.file);
+
+    const keptEntityIds = new Set(
+      form.photos
+        .filter((photo) => photo.kind === "entity")
+        .map((photo) => photo.id)
+    );
+
+    const removedEntityIds = [...initialEntityPhotoIds].filter(
+      (photoId) => !keptEntityIds.has(photoId)
+    );
 
     if (isCreateMode) {
-      const createdSpecies = {
-        id: targetSpeciesId,
-        ...payload
-      };
-      await addSpecies(createdSpecies);
-      await replaceSpeciesPhotos(targetSpeciesId, speciesPhotoRecords);
+      const createdSpecies = await addSpecies(payload);
+      if (newFiles.length > 0) {
+        await addSpeciesPhotoFiles(createdSpecies.id, newFiles);
+      }
       alert("Espèce ajoutée.");
       navigate(`/species/${createdSpecies.id}`);
       return;
     }
 
     await updateSpecies(sp.id, payload);
-    await replaceSpeciesPhotos(targetSpeciesId, speciesPhotoRecords);
+
+    for (const photoId of removedEntityIds) {
+      await removeSpeciesPhoto(sp.id, photoId);
+    }
+
+    if (newFiles.length > 0) {
+      await addSpeciesPhotoFiles(sp.id, newFiles);
+    }
+
     alert("Espèce mise à jour.");
     navigate(`/species/${sp.id}`);
   };
@@ -278,7 +275,7 @@ export default function SpeciesEditPage() {
 
             <label>
               ID interne (généré)
-              <input type="text" value={isCreateMode ? nextSpeciesId : sp.id} readOnly />
+              <input type="text" value={isCreateMode ? "Auto" : sp.id} readOnly />
             </label>
 
             <label>
@@ -388,7 +385,7 @@ export default function SpeciesEditPage() {
               {form.photos.map((photo, index) => (
                 <div key={`photo-${index}`} className="species-edit-row">
                   <img
-                    src={photo.imageData}
+                    src={photo.imageUrl}
                     alt={photo.filename || `Photo ${index + 1}`}
                     style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8 }}
                   />

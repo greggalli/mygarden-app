@@ -1,109 +1,85 @@
 # 🌿 MyGarden App
 
-Application web pour la gestion de jardin personnel : zones, espèces, plantations et entretien.
+Application web de gestion de jardin (zones, espèces, plantations, tâches), migrée vers une persistance **serveur** adaptée à un NAS.
 
----
+## Architecture actuelle
 
-## 📘 Documentation
+- Frontend: React (react-scripts) + React Router + CSS.
+- Backend: API Node légère (`server/index.js`).
+- Données structurées: SQLite (fichier persistant).
+- Photos d'espèces: fichiers image sur disque (volume persistant).
+- Export admin: JSON unique avec photos encodées en **Base64 data URLs**.
 
-Tous les fichiers de documentation se trouvent dans le dossier [`/docs`](./docs/).
-
-| Fichier | Description |
-|----------|--------------|
-| [BACKLOG.md](./docs/BACKLOG.md) | Vision, roadmap et priorités |
-| [DATA_MODEL.md](./docs/DATA_MODEL.md) | Modèle de données du projet |
-| [UI_GUIDE.md](./docs/UI_GUIDE.md) | Guide d'interface et navigation |
-| [DEV_GUIDE.md](./docs/DEV_GUIDE.md) | Guide de développement et conventions |
-| [TODO_NEXT.md](./docs/TODO_NEXT.md) | Liste des actions court terme |
-
----
-
-## 🧩 Stack technique
-
-- **React + Vite**
-- **React Router**
-- **CSS pur**
-- **Persistance locale via IndexedDB**
-- **Aucune dépendance serveur**
-
----
-
-## 🚀 Installation
+## Lancement local
 
 ```bash
-git clone <repo-url>
-cd mygarden-app
 npm install
+npm run server
 npm start
 ```
 
-Accéder à l'application : [http://localhost:3000](http://localhost:3000)
+Frontend: `http://localhost:3000`
 
----
+API: `http://localhost:4000`
 
-## 📁 Structure du projet
+## Variables d'environnement backend
 
-```
-src/
-├── App.jsx
-├── db/
-│   ├── indexedDb.js
-│   └── stores.js
-├── repositories/
-│   ├── speciesRepository.js
-│   ├── zonesRepository.js
-│   ├── plantationsRepository.js
-│   └── tasksRepository.js
-├── services/
-│   ├── persistenceService.js
-│   └── backupService.js
-├── data/
-│   ├── GardenDataContext.jsx
-│   ├── zones.json
-│   ├── species.json
-│   ├── instances.json
-│   └── tasks.json
-├── components/
-├── pages/
-└── styles.css
-```
+- `PORT` (défaut: `4000`)
+- `DATA_ROOT` (défaut: `/data`)
+- `DB_PATH` (défaut: `${DATA_ROOT}/db/garden.sqlite`)
+- `IMAGES_ROOT` (défaut: `${DATA_ROOT}/images`)
 
----
+Par défaut:
+- SQLite: `/data/db/garden.sqlite`
+- Images espèces: `/data/images/species/`
 
-## 💾 Persistance locale (IndexedDB)
+## Endpoints API ajoutés
 
-- L'application initialise la base IndexedDB `mygarden-db` au démarrage via `initializePersistence()`.
-- Au premier lancement, les données JSON de `src/data/*.json` sont injectées dans les object stores.
-- Les stores utilisés sont :
-  - `zones`
-  - `species` (avec index `by_family`)
-  - `speciesPhotos` (avec index `by_speciesId`)
-  - `plantations` (avec index `by_speciesId` et `by_zoneId`)
-  - `tasks`
-- Le `GardenDataContext` ne manipule plus directement le stockage navigateur : les opérations CRUD passent par les repositories et services.
+- `GET /api/bootstrap` — charge tout le dataset (species/zones/plantations/photos/tasks)
+- `POST /api/species`
+- `PUT /api/species/:id`
+- `DELETE /api/species/:id`
+- `POST /api/species/:id/photos?filename=...` (body binaire image)
+- `DELETE /api/species/:speciesId/photos/:photoId`
+- `POST /api/plantations`
+- `PUT /api/plantations/:id`
+- `DELETE /api/plantations/:id`
+- `GET /api/admin/export` — export complet JSON (photos en Base64 data URL)
+- `POST /api/admin/import` — restauration depuis JSON exporté
 
-## 🔁 Backup / Restore JSON
+## Schéma de stockage
 
-- Depuis la page **Admin** (`/admin`) :
-  - **Export JSON** : exporte toutes les données dans un fichier unique `mygarden-backup-YYYY-MM-DD.json`.
-  - **Import JSON** : lit un fichier de backup, valide sa structure puis remplace les données locales après confirmation.
-- Format de sauvegarde (`version: 1`) :
+Tables SQLite:
+- `species`
+- `zones`
+- `zone_geometries`
+- `plantations`
+- `species_photos`
+- `tasks` (conservé pour compatibilité fonctionnelle existante)
+
+`species_photos` ne stocke que des métadonnées et un `relative_path`.
+Les fichiers image sont écrits sur disque dans `IMAGES_ROOT/species`.
+
+## Export JSON (admin)
+
+Format principal:
 
 ```json
 {
   "version": 1,
   "exportedAt": "ISO_DATE",
   "data": {
-    "zones": [],
     "species": [],
+    "zones": [],
+    "zoneGeometries": [],
     "plantations": [],
-    "tasks": [],
     "speciesPhotos": [
       {
-        "id": "species-photo-2-a1b2c3",
-        "speciesId": 2,
+        "id": 1,
+        "speciesId": 1,
         "filename": "rose.jpg",
         "mimeType": "image/jpeg",
+        "relativePath": "species/xxx.jpg",
         "dataUrl": "data:image/jpeg;base64,..."
       }
     ]
@@ -111,36 +87,31 @@ src/
 }
 ```
 
-- Gestion des photos d'espèces :
-  - création / édition d'espèce : import depuis le sélecteur de fichiers navigateur (`jpg`, `jpeg`, `png`, `webp`, sélection multiple).
-  - persistance locale : chaque photo est stockée dans `speciesPhotos` avec métadonnées (`filename`, `mimeType`, `size`, `sortOrder`) et `imageData` (data URL).
-  - export : chaque photo est sérialisée dans `data.speciesPhotos` avec `dataUrl` Base64.
-  - import : les photos exportées sont restaurées dans le store `speciesPhotos` (compatible avec l'ancien champ `data.images`).
-- Flux d'import sécurisé :
-  1. sélection du fichier
-  2. confirmation utilisateur
-  3. parsing JSON
-  4. validation de structure + images
-  5. transformation des images
-  6. remplacement complet des stores IndexedDB
+## Déploiement Synology / Docker (principe)
 
-## ⚠️ Limites / compatibilité
+Monter des volumes persistants, par exemple:
 
-- IndexedDB dépend du navigateur (effacement possible si l'utilisateur purge les données de site).
-- Le backup est volontairement simple et mono-utilisateur (pas de fusion de datasets).
-- Les anciennes photos référencées par URL restent supportées ; si elles ne sont pas accessibles (CORS/404), l'export ajoute un warning.
-- Le format JSON est versionné (`version: 1`) pour préparer de futures évolutions.
+- `/volume1/docker/mygarden/db:/data/db`
+- `/volume1/docker/mygarden/images:/data/images`
 
----
+Cela garantit que:
+- le fichier SQLite survit aux redéploiements,
+- les photos uploadées survivent aux redéploiements.
 
-## 🌱 Objectif
+Exemple compose minimal (API):
 
-> Fournir une interface simple et visuelle pour gérer un jardin personnel :
-> suivre les plantes, leurs zones, leurs besoins et les tâches d’entretien, 
-> dans une application 100% locale et portable.
+```yaml
+services:
+  mygarden-api:
+    image: node:22
+    working_dir: /app
+    command: sh -c "npm ci && npm run server"
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./:/app
+      - /volume1/docker/mygarden/db:/data/db
+      - /volume1/docker/mygarden/images:/data/images
+```
 
----
-
-## 🧭 Licence
-
-MIT © 2025 – MyGarden App
+> En production NAS, utilisez idéalement une image buildée dédiée (pas de `npm ci` au runtime).
