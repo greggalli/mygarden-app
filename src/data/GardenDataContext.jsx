@@ -124,7 +124,10 @@ export function GardenDataProvider({ children }) {
       return;
     }
 
-    const updatedSpecies = { ...currentSpecies, ...partial };
+    const updatedSpecies = toStoredSpecies(
+      { ...currentSpecies, ...partial },
+      data.speciesPhotos
+    );
     await saveSpecies(updatedSpecies);
 
     setData((current) =>
