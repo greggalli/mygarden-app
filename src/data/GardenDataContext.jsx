@@ -1,41 +1,18 @@
-// src/data/GardenDataContext.jsx
 import React, { createContext, useContext, useEffect, useState } from "react";
-
-import zonesJson from "./zones.json";
-import speciesJson from "./species.json";
-import instancesJson from "./instances.json";
-import tasksJson from "./tasks.json";
-
 import {
-  deletePlantationById,
-  savePlantation
-} from "../repositories/plantationsRepository";
-import {
-  deleteSpeciesById,
-  saveSpecies
-} from "../repositories/speciesRepository";
-import {
-  deleteSpeciesPhotoById,
-  saveSpeciesPhoto
-} from "../repositories/speciesPhotosRepository";
-import {
-  exportBackupFile,
-  importBackupFile
-} from "../services/backupService";
-import {
-  initializePersistence,
-  readAllData
-} from "../services/persistenceService";
+  createPlantation,
+  createSpecies,
+  deletePlantationByIdApi,
+  deleteSpeciesByIdApi,
+  deleteSpeciesPhotoByIdApi,
+  fetchBootstrapData,
+  updatePlantationById,
+  updateSpeciesById,
+  uploadSpeciesPhotos
+} from "../services/apiService";
+import { exportBackupFile, importBackupFile } from "../services/backupService";
 
 const GardenDataContext = createContext(null);
-
-const initialData = {
-  zones: zonesJson,
-  species: speciesJson,
-  speciesPhotos: [],
-  instances: instancesJson,
-  tasks: tasksJson
-};
 
 function withResolvedSpeciesPhotos(dataset) {
   const speciesPhotos = Array.isArray(dataset.speciesPhotos) ? dataset.speciesPhotos : [];
@@ -53,169 +30,97 @@ function withResolvedSpeciesPhotos(dataset) {
     const linkedPhotos = (bySpeciesId.get(String(sp.id)) || [])
       .slice()
       .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-      .map((photo) => photo.imageData)
+      .map((photo) => photo.imageUrl)
       .filter(Boolean);
-
-    const legacyPhotos = Array.isArray(sp.photos) ? sp.photos.filter(Boolean) : [];
 
     return {
       ...sp,
-      photos: [...linkedPhotos, ...legacyPhotos]
+      photos: linkedPhotos
     };
   });
 
   return {
     ...dataset,
     species,
-    speciesPhotos
-  };
-}
-
-function toStoredSpecies(species) {
-  return {
-    ...species,
-    photos: Array.isArray(species.photos) ? species.photos.filter(Boolean) : []
+    speciesPhotos,
+    instances: dataset.plantations || dataset.instances || []
   };
 }
 
 export function GardenDataProvider({ children }) {
-  const [data, setData] = useState(initialData);
+  const [data, setData] = useState({
+    zones: [],
+    species: [],
+    speciesPhotos: [],
+    instances: [],
+    plantations: [],
+    tasks: []
+  });
   const [isDataReady, setIsDataReady] = useState(false);
 
-  useEffect(() => {
-    let isActive = true;
-
-    async function boot() {
-      try {
-        const dataset = await initializePersistence();
-        if (isActive) {
-          setData(withResolvedSpeciesPhotos(dataset));
-        }
-      } catch (error) {
-        console.warn("Erreur d'initialisation IndexedDB:", error);
-      } finally {
-        if (isActive) {
-          setIsDataReady(true);
-        }
-      }
-    }
-
-    boot();
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
-
   const refreshDataFromDb = async () => {
-    const latest = await readAllData();
+    const latest = await fetchBootstrapData();
     const hydrated = withResolvedSpeciesPhotos(latest);
     setData(hydrated);
     return hydrated;
   };
 
-  // === Mutations espèces ===
-  const addSpecies = async (newSpecies) => {
-    await saveSpecies(newSpecies);
-    setData((current) =>
-      withResolvedSpeciesPhotos({
-        ...current,
-        species: [...current.species, newSpecies]
+  useEffect(() => {
+    refreshDataFromDb()
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.warn("API bootstrap failed:", error);
       })
-    );
+      .finally(() => {
+        setIsDataReady(true);
+      });
+  }, []);
+
+  const addSpecies = async (newSpecies) => {
+    const created = await createSpecies(newSpecies);
+    await refreshDataFromDb();
+    return created;
   };
 
   const updateSpecies = async (id, partial) => {
-    const currentSpecies = data.species.find((sp) => sp.id === id);
-    if (!currentSpecies) {
-      return;
-    }
-
-    const updatedSpecies = toStoredSpecies(
-      { ...currentSpecies, ...partial },
-      data.speciesPhotos
-    );
-    await saveSpecies(updatedSpecies);
-
-    setData((current) =>
-      withResolvedSpeciesPhotos({
-        ...current,
-        species: current.species.map((sp) => (sp.id === id ? updatedSpecies : sp))
-      })
-    );
+    await updateSpeciesById(id, partial);
+    await refreshDataFromDb();
   };
 
   const deleteSpecies = async (id) => {
-    const linkedPhotos = data.speciesPhotos.filter((photo) => photo.speciesId === id);
-    await Promise.all(linkedPhotos.map((photo) => deleteSpeciesPhotoById(photo.id)));
-    await deleteSpeciesById(id);
-    setData((current) =>
-      withResolvedSpeciesPhotos({
-        ...current,
-        species: current.species.filter((sp) => sp.id !== id),
-        speciesPhotos: current.speciesPhotos.filter((photo) => photo.speciesId !== id)
-        // ⚠️ On ne touche pas aux instances ici.
-        // La logique métier (empêcher suppression si instances) est dans l'UI.
-      })
-    );
+    await deleteSpeciesByIdApi(id);
+    await refreshDataFromDb();
   };
 
-  const replaceSpeciesPhotos = async (speciesId, nextPhotos) => {
-    const currentPhotos = data.speciesPhotos.filter((photo) => photo.speciesId === speciesId);
-    const nextPhotoIds = new Set(nextPhotos.map((photo) => photo.id));
-
-    const removed = currentPhotos.filter((photo) => !nextPhotoIds.has(photo.id));
-    await Promise.all(removed.map((photo) => deleteSpeciesPhotoById(photo.id)));
-    await Promise.all(nextPhotos.map((photo) => saveSpeciesPhoto(photo)));
-
-    setData((current) =>
-      withResolvedSpeciesPhotos({
-        ...current,
-        speciesPhotos: [
-          ...current.speciesPhotos.filter((photo) => photo.speciesId !== speciesId),
-          ...nextPhotos
-        ]
-      })
-    );
-  };
-
-  // === Mutations plantations (instances) ===
   const addPlantInstance = async (newInstance) => {
-    await savePlantation(newInstance);
-    setData((current) => ({
-      ...current,
-      instances: [...current.instances, newInstance]
-    }));
+    await createPlantation(newInstance);
+    await refreshDataFromDb();
   };
 
   const updatePlantInstance = async (id, partial) => {
-    const currentInstance = data.instances.find((inst) => inst.id === id);
-    if (!currentInstance) {
-      return;
-    }
-
-    const updatedInstance = { ...currentInstance, ...partial };
-    await savePlantation(updatedInstance);
-
-    setData((current) => ({
-      ...current,
-      instances: current.instances.map((inst) =>
-        inst.id === id ? updatedInstance : inst
-      )
-    }));
+    await updatePlantationById(id, partial);
+    await refreshDataFromDb();
   };
 
   const deletePlantInstance = async (id) => {
-    await deletePlantationById(id);
-    setData((current) => ({
-      ...current,
-      instances: current.instances.filter((inst) => inst.id !== id)
-    }));
+    await deletePlantationByIdApi(id);
+    await refreshDataFromDb();
   };
 
-  const exportDataBackup = async () => {
-    return exportBackupFile();
+  const addSpeciesPhotoFiles = async (speciesId, files) => {
+    if (!files || files.length === 0) {
+      return;
+    }
+    await uploadSpeciesPhotos(speciesId, files);
+    await refreshDataFromDb();
   };
+
+  const removeSpeciesPhoto = async (speciesId, photoId) => {
+    await deleteSpeciesPhotoByIdApi(speciesId, photoId);
+    await refreshDataFromDb();
+  };
+
+  const exportDataBackup = async () => exportBackupFile();
 
   const importDataBackup = async (file) => {
     await importBackupFile(file);
@@ -232,7 +137,8 @@ export function GardenDataProvider({ children }) {
     addPlantInstance,
     updatePlantInstance,
     deletePlantInstance,
-    replaceSpeciesPhotos,
+    addSpeciesPhotoFiles,
+    removeSpeciesPhoto,
     refreshDataFromDb,
     exportDataBackup,
     importDataBackup
