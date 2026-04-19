@@ -72,32 +72,42 @@ function wrapRequest(request) {
   });
 }
 
+function waitForTransaction(tx) {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error("IndexedDB transaction failed"));
+    tx.onabort = () => reject(tx.error || new Error("IndexedDB transaction aborted"));
+  });
+}
+
 export async function getAll(storeName) {
   const db = await openDatabase();
   const tx = db.transaction(storeName, "readonly");
   const request = tx.objectStore(storeName).getAll();
-  return wrapRequest(request);
+  const [result] = await Promise.all([wrapRequest(request), waitForTransaction(tx)]);
+  return result;
 }
 
 export async function put(storeName, item) {
   const db = await openDatabase();
   const tx = db.transaction(storeName, "readwrite");
   const request = tx.objectStore(storeName).put(item);
-  return wrapRequest(request);
+  const [result] = await Promise.all([wrapRequest(request), waitForTransaction(tx)]);
+  return result;
 }
 
 export async function remove(storeName, id) {
   const db = await openDatabase();
   const tx = db.transaction(storeName, "readwrite");
   const request = tx.objectStore(storeName).delete(id);
-  return wrapRequest(request);
+  await Promise.all([wrapRequest(request), waitForTransaction(tx)]);
 }
 
 export async function clearStore(storeName) {
   const db = await openDatabase();
   const tx = db.transaction(storeName, "readwrite");
   const request = tx.objectStore(storeName).clear();
-  return wrapRequest(request);
+  await Promise.all([wrapRequest(request), waitForTransaction(tx)]);
 }
 
 export async function bulkPut(storeName, items) {
