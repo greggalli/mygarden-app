@@ -337,7 +337,7 @@
 
 .species-edit-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 0.5rem;
   align-items: center;
 }

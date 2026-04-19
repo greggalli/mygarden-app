@@ -1,4 +1,9 @@
 const DATA_URL_BASE64_REGEX = /^data:([\w.+-]+\/[\w.+-]+)?;base64,[A-Za-z0-9+/=\s]+$/;
+const SUPPORTED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp"
+]);
 
 export function isDataUrl(value) {
   return typeof value === "string" && DATA_URL_BASE64_REGEX.test(value.trim());
@@ -49,4 +54,26 @@ export function normalizeMimeType(mimeType, filename = "") {
   }
 
   return "image/jpeg";
+}
+
+export function fileToDataUrl(file) {
+  if (!(file instanceof File)) {
+    return Promise.reject(new Error("fileToDataUrl attend un fichier."));
+  }
+  return blobToDataUrl(file);
+}
+
+export function isSupportedImageFile(file) {
+  if (!(file instanceof File)) {
+    return false;
+  }
+
+  if (SUPPORTED_IMAGE_TYPES.has(file.type)) {
+    return true;
+  }
+
+  const lowerName = (file.name || "").toLowerCase();
+  return [".jpg", ".jpeg", ".png", ".webp"].some((ext) =>
+    lowerName.endsWith(ext)
+  );
 }

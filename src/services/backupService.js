@@ -71,6 +71,23 @@ function inferFilename(imageRef, fallbackBaseName) {
 
 function normalizeBackupRoot(payload) {
   if (payload && typeof payload === "object" && payload.data) {
+    if (!payload.data.speciesPhotos && Array.isArray(payload.data.images)) {
+      return {
+        ...payload,
+        data: {
+          ...payload.data,
+          speciesPhotos: payload.data.images
+            .filter((img) => img?.entityType === "species")
+            .map((img) => ({
+              id: img.id,
+              speciesId: img.entityId,
+              filename: img.filename,
+              mimeType: img.mimeType,
+              dataUrl: img.dataUrl
+            }))
+        }
+      };
+    }
     return payload;
   }
 
@@ -83,7 +100,7 @@ function normalizeBackupRoot(payload) {
       species: payload?.species,
       plantations: payload?.instances,
       tasks: payload?.tasks,
-      images: payload?.images || []
+      speciesPhotos: payload?.speciesPhotos || payload?.images || []
     }
   };
 }
@@ -117,128 +134,91 @@ export function validateBackupPayload(payload) {
     throw new Error("Le fichier de sauvegarde est invalide: data.tasks doit être un tableau.");
   }
 
-  if (!isArray(payload.data.images)) {
-    throw new Error("Le fichier de sauvegarde est invalide: data.images doit être un tableau.");
+  if (!isArray(payload.data.speciesPhotos)) {
+    throw new Error("Le fichier de sauvegarde est invalide: data.speciesPhotos doit être un tableau.");
   }
 
-  payload.data.images.forEach((image, index) => {
-    if (!image || typeof image !== "object") {
-      throw new Error(`Image #${index + 1} invalide (objet attendu).`);
+  payload.data.speciesPhotos.forEach((photo, index) => {
+    if (!photo || typeof photo !== "object") {
+      throw new Error(`Photo espèce #${index + 1} invalide (objet attendu).`);
     }
 
-    const requiredFields = ["id", "entityType", "entityId", "filename", "mimeType", "dataUrl"];
+    const requiredFields = ["id", "speciesId", "filename", "mimeType", "dataUrl"];
     requiredFields.forEach((field) => {
-      if (image[field] === undefined || image[field] === null || image[field] === "") {
-        throw new Error(`Image #${index + 1} invalide: ${field} manquant.`);
+      if (photo[field] === undefined || photo[field] === null || photo[field] === "") {
+        throw new Error(`Photo espèce #${index + 1} invalide: ${field} manquant.`);
       }
     });
 
-    if (!isDataUrl(image.dataUrl)) {
-      throw new Error(`Image #${index + 1} invalide: dataUrl n'est pas un base64 data URL.`);
+    if (!isDataUrl(photo.dataUrl)) {
+      throw new Error(`Photo espèce #${index + 1} invalide: dataUrl n'est pas un base64 data URL.`);
     }
   });
 }
 
-async function serializeSpeciesImages(speciesList) {
-  const images = [];
-  const warnings = [];
+async function serializeSpeciesPhotos(speciesList, existingSpeciesPhotos) {
+  const speciesPhotos = (existingSpeciesPhotos || []).map((photo, index) => ({
+    id: photo.id,
+    speciesId: photo.speciesId,
+    filename: photo.filename,
+    mimeType: normalizeMimeType(photo.mimeType, photo.filename || ""),
+    dataUrl: photo.imageData,
+    size: photo.size || null,
+    createdAt: photo.createdAt || null,
+    sortOrder: typeof photo.sortOrder === "number" ? photo.sortOrder : index
+  }));
 
-  async function trySerializeImage({ imageRef, speciesId, field, index = 0, fallbackName }) {
+  const warnings = [];
+  const existingKeys = new Set(speciesPhotos.map((photo) => String(photo.id)));
+
+  async function trySerializeLegacySpeciesPhoto({ imageRef, speciesId, index = 0 }) {
     try {
       const blob = await imageRefToBlob(imageRef);
       const dataUrl = await blobToDataUrl(blob);
-      const filename = inferFilename(imageRef, fallbackName);
+      const filename = inferFilename(imageRef, `species-${speciesId}-photo-${index + 1}`);
+      const photoId = `legacy-species-${speciesId}-${index}`;
 
-      images.push({
-        id: `species-${speciesId}-${field}-${index}`,
-        entityType: "species",
-        entityId: speciesId,
-        field,
-        index,
+      if (existingKeys.has(photoId)) {
+        return;
+      }
+
+      speciesPhotos.push({
+        id: photoId,
+        speciesId,
         filename,
         mimeType: normalizeMimeType(blob.type, filename),
+        size: blob.size || null,
+        createdAt: null,
+        sortOrder: index,
         dataUrl
       });
     } catch (error) {
-      warnings.push(`Image ignorée (${field}) pour l'espèce ${speciesId}: ${error.message}`);
+      warnings.push(`Image ignorée pour l'espèce ${speciesId}: ${error.message}`);
     }
   }
 
-  const serializedSpecies = await Promise.all(
+  await Promise.all(
     speciesList.map(async (sp) => {
-      const currentPhotos = isArray(sp.photos) ? sp.photos : [];
+      const currentPhotos = (isArray(sp.photos) ? sp.photos : []).filter(Boolean);
 
       for (let index = 0; index < currentPhotos.length; index += 1) {
-        await trySerializeImage({
-          imageRef: currentPhotos[index],
-          speciesId: sp.id,
-          field: "photos",
-          index,
-          fallbackName: `species-${sp.id}-photo-${index + 1}`
-        });
+        await trySerializeLegacySpeciesPhoto({ imageRef: currentPhotos[index], speciesId: sp.id, index });
       }
-
-      if (sp.photo_url) {
-        await trySerializeImage({
-          imageRef: sp.photo_url,
-          speciesId: sp.id,
-          field: "photo_url",
-          index: 0,
-          fallbackName: `species-${sp.id}-cover`
-        });
-      }
-
-      return {
-        ...sp,
-        photos: currentPhotos
-      };
     })
   );
 
   return {
-    species: serializedSpecies,
-    images,
+    speciesPhotos,
     warnings
   };
 }
 
-function applyImagesToSpecies(species, images) {
-  const bySpecies = new Map();
-
-  images.forEach((img) => {
-    if (img.entityType !== "species") {
-      return;
-    }
-
-    const key = String(img.entityId);
-    if (!bySpecies.has(key)) {
-      bySpecies.set(key, []);
-    }
-
-    bySpecies.get(key).push(img);
-  });
-
-  return species.map((sp) => {
-    const linkedImages = bySpecies.get(String(sp.id)) || [];
-
-    const photos = linkedImages
-      .filter((img) => img.field === "photos")
-      .sort((a, b) => (a.index || 0) - (b.index || 0))
-      .map((img) => img.restoredDataUrl);
-
-    const photoUrlImage = linkedImages.find((img) => img.field === "photo_url");
-
-    return {
-      ...sp,
-      photos: photos.length > 0 ? photos : isArray(sp.photos) ? sp.photos : [],
-      photo_url: photoUrlImage ? photoUrlImage.restoredDataUrl : sp.photo_url
-    };
-  });
-}
-
 export async function buildBackupPayload() {
   const dataset = await readAllData();
-  const serialized = await serializeSpeciesImages(dataset.species || []);
+  const serialized = await serializeSpeciesPhotos(
+    dataset.species || [],
+    dataset.speciesPhotos || []
+  );
 
   return {
     version: BACKUP_VERSION,
@@ -246,10 +226,10 @@ export async function buildBackupPayload() {
     warnings: serialized.warnings,
     data: {
       zones: dataset.zones,
-      species: serialized.species,
+      species: dataset.species,
       plantations: dataset.instances,
       tasks: dataset.tasks,
-      images: serialized.images
+      speciesPhotos: serialized.speciesPhotos
     }
   };
 }
@@ -270,24 +250,21 @@ export async function parseBackupFile(file) {
   const rawParsed = await readJsonFile(file);
   const parsed = normalizeBackupRoot(rawParsed);
   validateBackupPayload(parsed);
-
-  const restoredImages = await Promise.all(
-    parsed.data.images.map(async (image) => {
-      const blob = dataUrlToBlob(image.dataUrl);
-      const fileLike = new File([blob], image.filename, {
-        type: image.mimeType || blob.type
-      });
-
-      return {
-        ...image,
-        restoredDataUrl: await blobToDataUrl(fileLike)
-      };
-    })
-  );
+  const speciesPhotos = parsed.data.speciesPhotos.map((photo, index) => ({
+    id: photo.id,
+    speciesId: Number(photo.speciesId),
+    filename: photo.filename,
+    mimeType: normalizeMimeType(photo.mimeType, photo.filename || ""),
+    imageData: photo.dataUrl,
+    size: photo.size || null,
+    createdAt: photo.createdAt || null,
+    sortOrder: typeof photo.sortOrder === "number" ? photo.sortOrder : index
+  }));
 
   return {
     zones: parsed.data.zones,
-    species: applyImagesToSpecies(parsed.data.species, restoredImages),
+    species: parsed.data.species,
+    speciesPhotos,
     instances: parsed.data.plantations,
     tasks: parsed.data.tasks
   };

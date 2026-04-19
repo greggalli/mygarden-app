@@ -77,6 +77,7 @@ src/
 - Les stores utilisés sont :
   - `zones`
   - `species` (avec index `by_family`)
+  - `speciesPhotos` (avec index `by_speciesId`)
   - `plantations` (avec index `by_speciesId` et `by_zoneId`)
   - `tasks`
 - Le `GardenDataContext` ne manipule plus directement le stockage navigateur : les opérations CRUD passent par les repositories et services.
@@ -97,13 +98,10 @@ src/
     "species": [],
     "plantations": [],
     "tasks": [],
-    "images": [
+    "speciesPhotos": [
       {
-        "id": "species-2-photos-0",
-        "entityType": "species",
-        "entityId": 2,
-        "field": "photos",
-        "index": 0,
+        "id": "species-photo-2-a1b2c3",
+        "speciesId": 2,
         "filename": "rose.jpg",
         "mimeType": "image/jpeg",
         "dataUrl": "data:image/jpeg;base64,..."
@@ -113,9 +111,11 @@ src/
 }
 ```
 
-- Gestion des images :
-  - export: chaque image référencée par une espèce (`photos`/`photo_url`) est convertie en **data URL Base64**.
-  - import: chaque `dataUrl` est validée, convertie en `Blob`/`File`, puis restaurée en URL image persistée dans les données de l'app.
+- Gestion des photos d'espèces :
+  - création / édition d'espèce : import depuis le sélecteur de fichiers navigateur (`jpg`, `jpeg`, `png`, `webp`, sélection multiple).
+  - persistance locale : chaque photo est stockée dans `speciesPhotos` avec métadonnées (`filename`, `mimeType`, `size`, `sortOrder`) et `imageData` (data URL).
+  - export : chaque photo est sérialisée dans `data.speciesPhotos` avec `dataUrl` Base64.
+  - import : les photos exportées sont restaurées dans le store `speciesPhotos` (compatible avec l'ancien champ `data.images`).
 - Flux d'import sécurisé :
   1. sélection du fichier
   2. confirmation utilisateur
@@ -128,7 +128,7 @@ src/
 
 - IndexedDB dépend du navigateur (effacement possible si l'utilisateur purge les données de site).
 - Le backup est volontairement simple et mono-utilisateur (pas de fusion de datasets).
-- Les images hébergées sur des domaines externes sans CORS ne peuvent pas être sérialisées en Base64 et sont conservées comme références URL (signalées via warning à l'export).
+- Les anciennes photos référencées par URL restent supportées ; si elles ne sont pas accessibles (CORS/404), l'export ajoute un warning.
 - Le format JSON est versionné (`version: 1`) pour préparer de futures évolutions.
 
 ---

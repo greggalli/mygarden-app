@@ -2,8 +2,13 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import {
+  fileToDataUrl,
+  isSupportedImageFile,
+  normalizeMimeType
+} from "../utils/imageSerialization";
 
-const buildInitialForm = (species) => ({
+const buildInitialForm = (species, speciesPhotos) => ({
   common_name: species?.common_name || "",
   scientific_name: species?.scientific_name || "",
   family: species?.family || "",
@@ -11,17 +16,57 @@ const buildInitialForm = (species) => ({
   flowering_period: species?.flowering_period || "",
   care_tips: species?.care_tips || "",
   notes: species?.notes || "",
-  photos: Array.isArray(species?.photos) ? species.photos : [],
+  photos: buildInitialPhotos(species, speciesPhotos),
   external_links: Array.isArray(species?.external_links)
     ? species.external_links
     : []
 });
 
+function buildInitialPhotos(species, speciesPhotos) {
+  if (!species) {
+    return [];
+  }
+
+  const linkedEntities = (speciesPhotos || [])
+    .filter((photo) => photo.speciesId === species.id)
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+    .map((photo) => ({
+      id: photo.id,
+      speciesId: photo.speciesId,
+      filename: photo.filename,
+      mimeType: photo.mimeType,
+      size: photo.size,
+      imageData: photo.imageData,
+      createdAt: photo.createdAt,
+      kind: "entity"
+    }));
+
+  const entityDataUrls = new Set(linkedEntities.map((photo) => photo.imageData));
+  const legacyPhotos = (species.photos || [])
+    .filter((photoUrl) => photoUrl && !entityDataUrls.has(photoUrl))
+    .map((photoUrl, index) => ({
+      id: `legacy-${species.id}-${index}`,
+      filename: `photo-${index + 1}`,
+      mimeType: "",
+      size: null,
+      imageData: photoUrl,
+      kind: "legacy"
+    }));
+
+  return [...linkedEntities, ...legacyPhotos];
+}
+
 export default function SpeciesEditPage() {
   const { speciesId } = useParams();
   const navigate = useNavigate();
-  const { data, addSpecies, updateSpecies, deleteSpecies } = useGardenData();
-  const { species, instances } = data;
+  const {
+    data,
+    addSpecies,
+    updateSpecies,
+    replaceSpeciesPhotos,
+    deleteSpecies
+  } = useGardenData();
+  const { species, speciesPhotos, instances } = data;
   const isCreateMode = !speciesId;
   const nextSpeciesId = species.length > 0 ? Math.max(...species.map((s) => s.id)) + 1 : 1;
 
@@ -29,7 +74,8 @@ export default function SpeciesEditPage() {
     ? null
     : species.find((s) => s.id === Number(speciesId));
 
-  const [form, setForm] = useState(buildInitialForm(sp));
+  const [form, setForm] = useState(buildInitialForm(sp, speciesPhotos));
+  const [photoFeedback, setPhotoFeedback] = useState("");
 
   if (!isCreateMode && !sp) {
     return (
@@ -51,22 +97,54 @@ export default function SpeciesEditPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePhotoChange = (index, value) => {
-    setForm((prev) => ({
-      ...prev,
-      photos: prev.photos.map((photo, i) => (i === index ? value : photo))
-    }));
-  };
-
-  const addPhoto = () => {
-    setForm((prev) => ({ ...prev, photos: [...prev.photos, ""] }));
-  };
-
   const removePhoto = (index) => {
     setForm((prev) => ({
       ...prev,
       photos: prev.photos.filter((_, i) => i !== index)
     }));
+  };
+
+  const handlePhotoImport = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const imported = [];
+    const rejected = [];
+
+    for (const file of files) {
+      if (!isSupportedImageFile(file)) {
+        rejected.push(`${file.name || "Fichier sans nom"} (format non supporté)`);
+        continue;
+      }
+
+      try {
+        const dataUrl = await fileToDataUrl(file);
+        imported.push({
+          id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          filename: file.name || "photo",
+          mimeType: normalizeMimeType(file.type, file.name || ""),
+          size: file.size || null,
+          imageData: dataUrl,
+          kind: "new"
+        });
+      } catch (_error) {
+        rejected.push(`${file.name || "Fichier sans nom"} (lecture impossible)`);
+      }
+    }
+
+    if (imported.length > 0) {
+      setForm((prev) => ({ ...prev, photos: [...prev.photos, ...imported] }));
+    }
+
+    if (rejected.length > 0) {
+      setPhotoFeedback(
+        `Certains fichiers n'ont pas été importés: ${rejected.join(", ")}.`
+      );
+    } else {
+      setPhotoFeedback(`${imported.length} photo(s) importée(s).`);
+    }
+
+    e.target.value = "";
   };
 
   const handleExternalLinkChange = (index, key, value) => {
@@ -115,7 +193,10 @@ export default function SpeciesEditPage() {
       flowering_period: form.flowering_period.trim(),
       care_tips: form.care_tips.trim(),
       notes: form.notes.trim(),
-      photos: form.photos.map((photo) => photo.trim()).filter(Boolean),
+      photos: form.photos
+        .filter((photo) => photo.kind === "legacy")
+        .map((photo) => (photo.imageData || "").trim())
+        .filter(Boolean),
       external_links: cleanedExternalLinks
     };
 
@@ -124,18 +205,39 @@ export default function SpeciesEditPage() {
       return;
     }
 
+    const targetSpeciesId = isCreateMode ? nextSpeciesId : sp.id;
+    const speciesPhotoRecords = form.photos
+      .filter((photo) => photo.kind !== "legacy")
+      .map((photo, index) => ({
+        id:
+          photo.kind === "entity"
+            ? photo.id
+            : `species-photo-${targetSpeciesId}-${Date.now()}-${index}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`,
+        speciesId: targetSpeciesId,
+        filename: photo.filename || `photo-${index + 1}.jpg`,
+        mimeType: normalizeMimeType(photo.mimeType, photo.filename || ""),
+        size: typeof photo.size === "number" ? photo.size : null,
+        imageData: photo.imageData,
+        createdAt: photo.createdAt || new Date().toISOString(),
+        sortOrder: index
+      }));
+
     if (isCreateMode) {
       const createdSpecies = {
-        id: nextSpeciesId,
+        id: targetSpeciesId,
         ...payload
       };
       await addSpecies(createdSpecies);
+      await replaceSpeciesPhotos(targetSpeciesId, speciesPhotoRecords);
       alert("Espèce ajoutée.");
       navigate(`/species/${createdSpecies.id}`);
       return;
     }
 
     await updateSpecies(sp.id, payload);
+    await replaceSpeciesPhotos(targetSpeciesId, speciesPhotoRecords);
     alert("Espèce mise à jour.");
     navigate(`/species/${sp.id}`);
   };
@@ -270,21 +372,27 @@ export default function SpeciesEditPage() {
         <section className="species-detail-section">
           <div className="species-detail-card">
             <div className="section-header">
-              <h3>Photos (liens texte)</h3>
+              <h3>Photos</h3>
             </div>
             <p className="muted">
-              Renseigner des chemins comme <code>/images/species/{isCreateMode ? nextSpeciesId : sp.id}/photo.jpg</code>.
-              La sélection depuis le stockage sera ajoutée plus tard.
+              Importez une ou plusieurs images (jpg, jpeg, png, webp) depuis votre appareil.
             </p>
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              multiple
+              onChange={handlePhotoImport}
+            />
+            {photoFeedback && <p className="muted">{photoFeedback}</p>}
             <div className="species-edit-list">
               {form.photos.map((photo, index) => (
                 <div key={`photo-${index}`} className="species-edit-row">
-                  <input
-                    type="text"
-                    value={photo}
-                    onChange={(e) => handlePhotoChange(index, e.target.value)}
-                    placeholder="/images/species/<id>/photo.jpg"
+                  <img
+                    src={photo.imageData}
+                    alt={photo.filename || `Photo ${index + 1}`}
+                    style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8 }}
                   />
+                  <span>{photo.filename || `Photo ${index + 1}`}</span>
                   <button
                     type="button"
                     className="btn-icon-danger"
@@ -295,9 +403,9 @@ export default function SpeciesEditPage() {
                 </div>
               ))}
             </div>
-            <button type="button" className="btn-secondary" onClick={addPhoto}>
-              Ajouter une photo
-            </button>
+            {form.photos.length === 0 && (
+              <p className="muted">Aucune photo liée à cette espèce.</p>
+            )}
           </div>
         </section>
 
