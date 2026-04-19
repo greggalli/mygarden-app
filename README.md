@@ -1,117 +1,95 @@
-# 🌿 MyGarden App
+# MyGarden App
 
-Application web de gestion de jardin (zones, espèces, plantations, tâches), migrée vers une persistance **serveur** adaptée à un NAS.
+MyGarden is now organized for **local development first** and easy migration to **NAS/container volumes later**.
 
-## Architecture actuelle
+## Repository structure
 
-- Frontend: React (react-scripts) + React Router + CSS.
-- Backend: API Node légère (`server/index.js`).
-- Données structurées: SQLite (fichier persistant).
-- Photos d'espèces: fichiers image sur disque (volume persistant).
-- Export admin: JSON unique avec photos encodées en **Base64 data URLs**.
+```text
+project-root/
+├─ frontend/            # React + Vite + React Router + CSS
+├─ backend/             # lightweight Node API (CRUD + image upload)
+├─ data/
+│  ├─ db/               # SQLite file location (dev default)
+│  └─ images/           # uploaded images location (dev default)
+├─ docs/
+└─ package.json         # convenience scripts
+```
 
-## Lancement local
+## Current runtime model
+
+### Local development
+- Frontend runs with Vite (`http://localhost:5173`)
+- Backend runs locally (`http://localhost:3000`)
+- SQLite DB file: `data/db/garden.sqlite`
+- Uploaded images: `data/images/`
+
+### Later on NAS/container
+Change only environment variables:
+- `DB_PATH`
+- `IMAGE_DIR`
+- `PORT` (optional)
+- `CORS_ORIGIN` (optional)
+
+No backend storage code rewrite is required.
+
+## Environment variables
+
+### Backend (`backend/.env`)
+Copy `backend/.env.example` to `backend/.env` and adjust if needed.
+
+- `PORT` (default: `3000`)
+- `DB_PATH` (default: `../data/db/garden.sqlite`)
+- `IMAGE_DIR` (default: `../data/images`)
+- `CORS_ORIGIN` (default: `*`)
+
+> Relative paths are resolved from the `backend/` directory.
+
+### Frontend (`frontend/.env`)
+Copy `frontend/.env.example` to `frontend/.env` only if needed.
+
+- `VITE_API_BASE_URL` (optional; default empty string to use dev proxy)
+- `VITE_BACKEND_PROXY_TARGET` (optional; default `http://localhost:3000`)
+
+## Local development setup
+
+1. Install dependencies:
 
 ```bash
-npm install
-npm run server
-npm start
+npm install --prefix backend
+npm install --prefix frontend
 ```
 
-Frontend: `http://localhost:3000`
+2. Start frontend + backend together:
 
-API: `http://localhost:4000`
-
-## Variables d'environnement backend
-
-- `PORT` (défaut: `4000`)
-- `DATA_ROOT` (défaut: `/data`)
-- `DB_PATH` (défaut: `${DATA_ROOT}/db/garden.sqlite`)
-- `IMAGES_ROOT` (défaut: `${DATA_ROOT}/images`)
-
-Par défaut:
-- SQLite: `/data/db/garden.sqlite`
-- Images espèces: `/data/images/species/`
-
-## Endpoints API ajoutés
-
-- `GET /api/bootstrap` — charge tout le dataset (species/zones/plantations/photos/tasks)
-- `POST /api/species`
-- `PUT /api/species/:id`
-- `DELETE /api/species/:id`
-- `POST /api/species/:id/photos?filename=...` (body binaire image)
-- `DELETE /api/species/:speciesId/photos/:photoId`
-- `POST /api/plantations`
-- `PUT /api/plantations/:id`
-- `DELETE /api/plantations/:id`
-- `GET /api/admin/export` — export complet JSON (photos en Base64 data URL)
-- `POST /api/admin/import` — restauration depuis JSON exporté
-
-## Schéma de stockage
-
-Tables SQLite:
-- `species`
-- `zones`
-- `zone_geometries`
-- `plantations`
-- `species_photos`
-- `tasks` (conservé pour compatibilité fonctionnelle existante)
-
-`species_photos` ne stocke que des métadonnées et un `relative_path`.
-Les fichiers image sont écrits sur disque dans `IMAGES_ROOT/species`.
-
-## Export JSON (admin)
-
-Format principal:
-
-```json
-{
-  "version": 1,
-  "exportedAt": "ISO_DATE",
-  "data": {
-    "species": [],
-    "zones": [],
-    "zoneGeometries": [],
-    "plantations": [],
-    "speciesPhotos": [
-      {
-        "id": 1,
-        "speciesId": 1,
-        "filename": "rose.jpg",
-        "mimeType": "image/jpeg",
-        "relativePath": "species/xxx.jpg",
-        "dataUrl": "data:image/jpeg;base64,..."
-      }
-    ]
-  }
-}
+```bash
+npm run dev
 ```
 
-## Déploiement Synology / Docker (principe)
+Or run separately:
 
-Monter des volumes persistants, par exemple:
-
-- `/volume1/docker/mygarden/db:/data/db`
-- `/volume1/docker/mygarden/images:/data/images`
-
-Cela garantit que:
-- le fichier SQLite survit aux redéploiements,
-- les photos uploadées survivent aux redéploiements.
-
-Exemple compose minimal (API):
-
-```yaml
-services:
-  mygarden-api:
-    image: node:22
-    working_dir: /app
-    command: sh -c "npm ci && npm run server"
-    ports:
-      - "4000:4000"
-    volumes:
-      - ./:/app
-      - /volume1/docker/mygarden/db:/data/db
-      - /volume1/docker/mygarden/images:/data/images
+```bash
+npm run dev:backend
+npm run dev:frontend
 ```
 
-> En production NAS, utilisez idéalement une image buildée dédiée (pas de `npm ci` au runtime).
+## Notes on persistence
+
+- Backend creates missing storage directories on startup:
+  - DB parent directory
+  - image directory
+  - species image subdirectory
+- SQLite schema is initialized automatically.
+- Seed data is inserted only when DB is empty.
+
+## NAS/container migration example
+
+Example backend env values for mounted volumes:
+
+```env
+PORT=3000
+DB_PATH=/volume1/docker/mygarden/db/garden.sqlite
+IMAGE_DIR=/volume1/docker/mygarden/images
+CORS_ORIGIN=http://<your-frontend-host>
+```
+
+With this setup, container rebuilds do not lose database or uploaded images.

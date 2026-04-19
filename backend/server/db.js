@@ -1,15 +1,15 @@
 const fs = require("fs");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
-const { DB_PATH } = require("./config");
+const { config } = require("./config");
 
 function ensureParentDirectory(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
-ensureParentDirectory(DB_PATH);
+ensureParentDirectory(config.dbPath);
 
-const db = new DatabaseSync(DB_PATH);
+const db = new DatabaseSync(config.dbPath);
 db.exec("PRAGMA journal_mode = WAL;");
 db.exec("PRAGMA foreign_keys = ON;");
 
