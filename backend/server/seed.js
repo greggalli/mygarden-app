@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 function loadJson(relativePath) {
-  const fullPath = path.join(__dirname, "..", relativePath);
+  const fullPath = path.resolve(__dirname, "..", "..", relativePath);
   return JSON.parse(fs.readFileSync(fullPath, "utf-8"));
 }
 
@@ -11,10 +11,10 @@ function seedIfEmpty(db) {
   if (row.count > 0) return;
 
   const now = new Date().toISOString();
-  const species = loadJson("src/data/species.json");
-  const zones = loadJson("src/data/zones.json");
-  const plantations = loadJson("src/data/instances.json");
-  const tasks = loadJson("src/data/tasks.json");
+  const species = loadJson("frontend/src/data/species.json");
+  const zones = loadJson("frontend/src/data/zones.json");
+  const plantations = loadJson("frontend/src/data/instances.json");
+  const tasks = loadJson("frontend/src/data/tasks.json");
 
   const insertSpecies = db.prepare(`INSERT INTO species (id, common_name, scientific_name, family, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const insertZone = db.prepare(`INSERT INTO zones (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`);

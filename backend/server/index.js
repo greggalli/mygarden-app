@@ -6,22 +6,31 @@ const { randomUUID } = require("crypto");
 
 const { db, initializeSchema } = require("./db");
 const { seedIfEmpty } = require("./seed");
-const { IMAGES_ROOT, SPECIES_IMAGES_DIR, PORT } = require("./config");
+const { config } = require("./config");
+
+const { imageDir: IMAGES_ROOT, port: PORT, corsOrigin } = config;
+const SPECIES_IMAGES_DIR = path.join(IMAGES_ROOT, "species");
 
 initializeSchema();
 seedIfEmpty(db);
 fs.mkdirSync(SPECIES_IMAGES_DIR, { recursive: true });
 
+function corsHeaders(extra = {}) {
+  return {
+    "Access-Control-Allow-Origin": corsOrigin,
+    ...extra
+  };
+}
+
 function json(res, status, payload) {
-  res.writeHead(status, {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*"
-  });
+  res.writeHead(status, corsHeaders({
+    "Content-Type": "application/json"
+  }));
   res.end(JSON.stringify(payload));
 }
 
 function noContent(res) {
-  res.writeHead(204, { "Access-Control-Allow-Origin": "*" });
+  res.writeHead(204, corsHeaders());
   res.end();
 }
 
@@ -131,25 +140,25 @@ async function handleRequest(req, res) {
   const method = req.method || "GET";
 
   if (method === "OPTIONS") {
-    res.writeHead(204, {
-      "Access-Control-Allow-Origin": "*",
+    res.writeHead(204, corsHeaders({
       "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type"
-    });
+    }));
     res.end();
     return;
   }
 
   if (url.pathname.startsWith("/images/")) {
     const relPath = url.pathname.replace("/images/", "");
-    const abs = path.join(IMAGES_ROOT, relPath);
-    if (!abs.startsWith(IMAGES_ROOT)) {
+    const abs = path.resolve(IMAGES_ROOT, relPath);
+    const imagesRootWithSep = `${IMAGES_ROOT}${path.sep}`;
+    if (abs !== IMAGES_ROOT && !abs.startsWith(imagesRootWithSep)) {
       json(res, 400, { error: "Invalid image path" });
       return;
     }
     try {
       const data = await fsp.readFile(abs);
-      res.writeHead(200, { "Content-Type": "application/octet-stream", "Access-Control-Allow-Origin": "*" });
+      res.writeHead(200, corsHeaders({ "Content-Type": "application/octet-stream" }));
       res.end(data);
     } catch {
       json(res, 404, { error: "Image not found" });
