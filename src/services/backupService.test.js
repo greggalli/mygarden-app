@@ -10,7 +10,7 @@ describe("validateBackupPayload", () => {
         species: [],
         plantations: [],
         tasks: [],
-        images: []
+        speciesPhotos: []
       }
     };
 
@@ -18,7 +18,7 @@ describe("validateBackupPayload", () => {
   });
 
 
-  it("accepts image entries with entityId set to 0", () => {
+  it("accepts species photo entries with speciesId set to 0", () => {
     expect(() =>
       validateBackupPayload({
         version: 1,
@@ -27,11 +27,10 @@ describe("validateBackupPayload", () => {
           species: [],
           plantations: [],
           tasks: [],
-          images: [
+          speciesPhotos: [
             {
               id: "img-0",
-              entityType: "species",
-              entityId: 0,
+              speciesId: 0,
               filename: "zero.jpg",
               mimeType: "image/jpeg",
               dataUrl: "data:image/jpeg;base64,AA=="
@@ -47,14 +46,14 @@ describe("validateBackupPayload", () => {
         version: 1,
         data: { zones: [], species: [], plantations: [], tasks: [] }
       })
-    ).toThrow(/images/);
+    ).toThrow(/speciesPhotos/);
   });
 
   it("rejects a non-object payload", () => {
     expect(() => validateBackupPayload(null)).toThrow(/invalide/);
   });
 
-  it("rejects invalid image data urls", () => {
+  it("rejects invalid species photo data urls", () => {
     expect(() =>
       validateBackupPayload({
         version: 1,
@@ -63,11 +62,10 @@ describe("validateBackupPayload", () => {
           species: [],
           plantations: [],
           tasks: [],
-          images: [
+          speciesPhotos: [
             {
               id: "a",
-              entityType: "species",
-              entityId: 1,
+              speciesId: 1,
               filename: "rose.jpg",
               mimeType: "image/jpeg",
               dataUrl: "not-a-data-url"

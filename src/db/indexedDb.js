@@ -10,6 +10,13 @@ function createStores(db) {
     speciesStore.createIndex("by_family", "family", { unique: false });
   }
 
+  if (!db.objectStoreNames.contains(STORE_NAMES.speciesPhotos)) {
+    const speciesPhotosStore = db.createObjectStore(STORE_NAMES.speciesPhotos, {
+      keyPath: "id"
+    });
+    speciesPhotosStore.createIndex("by_speciesId", "speciesId", { unique: false });
+  }
+
   if (!db.objectStoreNames.contains(STORE_NAMES.zones)) {
     db.createObjectStore(STORE_NAMES.zones, { keyPath: "id" });
   }
