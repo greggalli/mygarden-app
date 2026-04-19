@@ -56,10 +56,7 @@ function withResolvedSpeciesPhotos(dataset) {
       .map((photo) => photo.imageData)
       .filter(Boolean);
 
-    const linkedSet = new Set(linkedPhotos);
-    const legacyPhotos = Array.isArray(sp.photos)
-      ? sp.photos.filter((photoUrl) => photoUrl && !linkedSet.has(photoUrl))
-      : [];
+    const legacyPhotos = Array.isArray(sp.photos) ? sp.photos.filter(Boolean) : [];
 
     return {
       ...sp,
@@ -71,24 +68,6 @@ function withResolvedSpeciesPhotos(dataset) {
     ...dataset,
     species,
     speciesPhotos
-  };
-}
-
-function toStoredSpecies(speciesRecord, allSpeciesPhotos) {
-  const linkedSet = new Set(
-    (allSpeciesPhotos || [])
-      .filter((photo) => String(photo.speciesId) === String(speciesRecord.id))
-      .map((photo) => photo.imageData)
-      .filter(Boolean)
-  );
-
-  const safeLegacyPhotos = Array.isArray(speciesRecord.photos)
-    ? speciesRecord.photos.filter((photoUrl) => photoUrl && !linkedSet.has(photoUrl))
-    : [];
-
-  return {
-    ...speciesRecord,
-    photos: safeLegacyPhotos
   };
 }
 
@@ -130,7 +109,7 @@ export function GardenDataProvider({ children }) {
 
   // === Mutations espèces ===
   const addSpecies = async (newSpecies) => {
-    await saveSpecies(toStoredSpecies(newSpecies, data.speciesPhotos));
+    await saveSpecies(newSpecies);
     setData((current) =>
       withResolvedSpeciesPhotos({
         ...current,
