@@ -33,6 +33,34 @@ export function fetchBootstrapData() {
   return request("/api/bootstrap");
 }
 
+export function fetchZones() {
+  return request("/api/zones");
+}
+
+export function fetchZoneById(id) {
+  return request(`/api/zones/${id}`);
+}
+
+export function createZone(payload) {
+  return request("/api/zones", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateZoneById(id, payload) {
+  return request(`/api/zones/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function deleteZoneByIdApi(id) {
+  return request(`/api/zones/${id}`, {
+    method: "DELETE"
+  });
+}
+
 export function createSpecies(payload) {
   return request("/api/species", {
     method: "POST",

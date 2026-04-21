@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
+  createZone,
   createPlantation,
   createSpecies,
+  deleteZoneByIdApi,
   deletePlantationByIdApi,
   deleteSpeciesByIdApi,
   deleteSpeciesPhotoByIdApi,
   fetchBootstrapData,
+  fetchZoneById,
+  fetchZones,
+  updateZoneById,
   updatePlantationById,
   updateSpeciesById,
   uploadSpeciesPhotos
@@ -107,6 +112,26 @@ export function GardenDataProvider({ children }) {
     await refreshDataFromDb();
   };
 
+  const listZones = async () => fetchZones();
+
+  const getZoneById = async (id) => fetchZoneById(id);
+
+  const addZone = async (newZone) => {
+    const created = await createZone(newZone);
+    await refreshDataFromDb();
+    return created;
+  };
+
+  const updateZone = async (id, partial) => {
+    await updateZoneById(id, partial);
+    await refreshDataFromDb();
+  };
+
+  const deleteZone = async (id) => {
+    await deleteZoneByIdApi(id);
+    await refreshDataFromDb();
+  };
+
   const addSpeciesPhotoFiles = async (speciesId, files) => {
     if (!files || files.length === 0) {
       return;
@@ -137,6 +162,11 @@ export function GardenDataProvider({ children }) {
     addPlantInstance,
     updatePlantInstance,
     deletePlantInstance,
+    listZones,
+    getZoneById,
+    addZone,
+    updateZone,
+    deleteZone,
     addSpeciesPhotoFiles,
     removeSpeciesPhoto,
     refreshDataFromDb,

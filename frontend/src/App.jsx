@@ -10,6 +10,8 @@ import {
 
 import ZonesPage from "./pages/ZonesPage";
 import ZoneDetailPage from "./pages/ZoneDetailPage";
+import ZoneFormPage from "./pages/ZoneFormPage";
+import MapPage from "./pages/MapPage";
 import PlantsListPage from "./pages/PlantsListPage";
 import PlantDetailPage from "./pages/PlantDetailPage";
 import PlantEditPage from "./pages/PlantEditPage";
@@ -27,8 +29,11 @@ export default function App() {
         <header className="header">
           <h1 className="app-title">🌿 MyGarden App</h1>
           <nav>
-            <NavLink to="/zones" className="nav-item">
+            <NavLink to="/map" className="nav-item">
               Carte
+            </NavLink>
+            <NavLink to="/zones" className="nav-item">
+              Zones
             </NavLink>
             <NavLink to="/species" className="nav-item">
               Espèces
@@ -44,11 +49,14 @@ export default function App() {
 
         <main className="main-content">
           <Routes>
-            <Route path="/" element={<Navigate to="/zones" replace />} />
+            <Route path="/" element={<Navigate to="/map" replace />} />
 
             {/* navigation par carte */}
+            <Route path="/map" element={<MapPage />} />
             <Route path="/zones" element={<ZonesPage />} />
+            <Route path="/zones/new" element={<ZoneFormPage />} />
             <Route path="/zones/:zoneId" element={<ZoneDetailPage />} />
+            <Route path="/zones/:zoneId/edit" element={<ZoneFormPage />} />
 
             {/* Espèces */}
             <Route path="/species" element={<SpeciesListPage />} />

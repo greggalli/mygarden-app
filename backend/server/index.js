@@ -99,20 +99,71 @@ function toPhotoRow(row) {
   };
 }
 
+function parseCoordinatesFromGeometry(geometry) {
+  if (Array.isArray(geometry?.shape)) {
+    return geometry.shape;
+  }
+  if (Array.isArray(geometry?.coordinates)) {
+    return geometry.coordinates;
+  }
+  return [];
+}
+
+function serializeZone(zoneRow, geometryRow, plantingCount = 0) {
+  const geometry = parseJson(geometryRow?.geometry_json, {});
+  const coordinates = parseCoordinatesFromGeometry(geometry);
+  return {
+    id: zoneRow.id,
+    name: zoneRow.name,
+    description: zoneRow.description,
+    coordinates,
+    planting_count: plantingCount,
+    color: geometry.color || null,
+    zone_type: geometry.zone_type || null,
+    bbox: geometry.bbox || null,
+    shape: coordinates,
+    created_at: zoneRow.created_at,
+    updated_at: zoneRow.updated_at
+  };
+}
+
+function parseZoneCoordinates(rawValue) {
+  if (Array.isArray(rawValue)) {
+    return rawValue;
+  }
+  if (typeof rawValue === "string") {
+    if (!rawValue.trim()) return [];
+    const parsed = parseJson(rawValue, null);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    throw new Error("Coordinates must be a valid JSON array");
+  }
+  if (rawValue == null) {
+    return [];
+  }
+  throw new Error("Coordinates must be an array or JSON array string");
+}
+
 function loadBootstrapData() {
   const zoneGeometries = db.prepare("SELECT * FROM zone_geometries ORDER BY id").all();
   const geometryByZoneId = new Map(zoneGeometries.map((z) => [z.zone_id, parseJson(z.geometry_json, {})]));
+  const plantationCounts = db.prepare("SELECT zone_id, COUNT(*) AS count FROM plantations WHERE zone_id IS NOT NULL GROUP BY zone_id").all();
+  const plantingCountByZoneId = new Map(plantationCounts.map((row) => [row.zone_id, row.count]));
 
   const zones = db.prepare("SELECT * FROM zones ORDER BY name COLLATE NOCASE").all().map((zone) => {
     const g = geometryByZoneId.get(zone.id) || {};
+    const coordinates = parseCoordinatesFromGeometry(g);
     return {
       id: zone.id,
       name: zone.name,
       description: zone.description,
+      coordinates,
+      planting_count: plantingCountByZoneId.get(zone.id) || 0,
       color: g.color || null,
       zone_type: g.zone_type || null,
       bbox: g.bbox || null,
-      shape: g.shape || [],
+      shape: coordinates,
       created_at: zone.created_at,
       updated_at: zone.updated_at
     };
@@ -171,6 +222,76 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "GET" && url.pathname === "/api/zones") {
+    const rows = db.prepare(`
+      SELECT z.*, zg.geometry_json, COUNT(p.id) AS planting_count
+      FROM zones z
+      LEFT JOIN zone_geometries zg ON zg.zone_id = z.id
+      LEFT JOIN plantations p ON p.zone_id = z.id
+      GROUP BY z.id
+      ORDER BY z.name COLLATE NOCASE
+    `).all();
+    json(res, 200, rows.map((row) => serializeZone(row, row, row.planting_count)));
+    return;
+  }
+
+  const zoneMatch = url.pathname.match(/^\/api\/zones\/(\d+)$/);
+  if (zoneMatch && method === "GET") {
+    const id = Number(zoneMatch[1]);
+    const row = db.prepare(`
+      SELECT z.*, zg.geometry_json, COUNT(p.id) AS planting_count
+      FROM zones z
+      LEFT JOIN zone_geometries zg ON zg.zone_id = z.id
+      LEFT JOIN plantations p ON p.zone_id = z.id
+      WHERE z.id = ?
+      GROUP BY z.id
+    `).get(id);
+    if (!row) return json(res, 404, { error: "Zone not found" });
+    json(res, 200, serializeZone(row, row, row.planting_count));
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/api/zones") {
+    const payload = parseJson((await readBody(req)).toString("utf8"), {});
+    const name = (payload.name || "").trim();
+    if (!name) {
+      return json(res, 400, { error: "Zone name is required" });
+    }
+    let coordinates;
+    try {
+      coordinates = parseZoneCoordinates(payload.coordinates);
+    } catch (error) {
+      return json(res, 400, { error: error.message });
+    }
+    const now = new Date().toISOString();
+    const maxId = db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM zones").get().id;
+    const id = Number.isInteger(payload.id) ? payload.id : maxId + 1;
+
+    const existingGeometry = parseJson(payload.geometry_json, {});
+    const nextGeometry = {
+      ...existingGeometry,
+      shape: coordinates,
+      coordinates
+    };
+
+    db.exec("BEGIN");
+    try {
+      db.prepare("INSERT INTO zones (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+        .run(id, name, (payload.description || "").trim() || null, now, now);
+      db.prepare("INSERT INTO zone_geometries (zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?)")
+        .run(id, JSON.stringify(nextGeometry), now, now);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+
+    const created = db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
+    const geometry = db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
+    json(res, 201, serializeZone(created, geometry, 0));
+    return;
+  }
+
   if (method === "POST" && url.pathname === "/api/species") {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const now = new Date().toISOString();
@@ -181,6 +302,70 @@ async function handleRequest(req, res) {
       .run(id, (payload.common_name || "").trim(), payload.scientific_name || null, payload.family || null, payload.pruning_period || null, payload.flowering_period || null, payload.care_tips || null, payload.notes || null, JSON.stringify(payload.external_links || []), now, now);
 
     json(res, 201, toSpeciesRow(db.prepare("SELECT * FROM species WHERE id = ?").get(id)));
+    return;
+  }
+
+  if (zoneMatch && method === "PUT") {
+    const id = Number(zoneMatch[1]);
+    const existing = db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
+    if (!existing) return json(res, 404, { error: "Zone not found" });
+    const payload = parseJson((await readBody(req)).toString("utf8"), {});
+    const name = (payload.name ?? existing.name ?? "").trim();
+    if (!name) return json(res, 400, { error: "Zone name is required" });
+    const description = payload.description !== undefined
+      ? ((payload.description || "").trim() || null)
+      : existing.description;
+    let coordinates;
+    try {
+      coordinates = payload.coordinates !== undefined
+        ? parseZoneCoordinates(payload.coordinates)
+        : parseCoordinatesFromGeometry(
+          parseJson(db.prepare("SELECT geometry_json FROM zone_geometries WHERE zone_id = ?").get(id)?.geometry_json, {})
+        );
+    } catch (error) {
+      return json(res, 400, { error: error.message });
+    }
+    const now = new Date().toISOString();
+
+    const existingGeometry = db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
+    const mergedGeometry = {
+      ...parseJson(existingGeometry?.geometry_json, {}),
+      shape: coordinates,
+      coordinates
+    };
+
+    db.exec("BEGIN");
+    try {
+      db.prepare("UPDATE zones SET name = ?, description = ?, updated_at = ? WHERE id = ?")
+        .run(name, description, now, id);
+      if (existingGeometry) {
+        db.prepare("UPDATE zone_geometries SET geometry_json = ?, updated_at = ? WHERE zone_id = ?")
+          .run(JSON.stringify(mergedGeometry), now, id);
+      } else {
+        db.prepare("INSERT INTO zone_geometries (zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?)")
+          .run(id, JSON.stringify(mergedGeometry), now, now);
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+
+    const updatedZone = db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
+    const updatedGeometry = db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
+    const plantingCount = db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id).count;
+    json(res, 200, serializeZone(updatedZone, updatedGeometry, plantingCount));
+    return;
+  }
+
+  if (zoneMatch && method === "DELETE") {
+    const id = Number(zoneMatch[1]);
+    const zone = db.prepare("SELECT id FROM zones WHERE id = ?").get(id);
+    if (!zone) return json(res, 404, { error: "Zone not found" });
+    const linked = db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id).count;
+    if (linked > 0) return json(res, 409, { error: "Zone has linked plantations and cannot be deleted" });
+    db.prepare("DELETE FROM zones WHERE id = ?").run(id);
+    noContent(res);
     return;
   }
 

@@ -26,7 +26,7 @@ export default function GardenOverviewMap() {
           className="garden-map-image"
         />
 
-        {zones.map((zone) => (
+        {zones.filter((zone) => zone?.bbox).map((zone) => (
           <div
             key={zone.id}
             className={
@@ -80,7 +80,7 @@ export default function GardenOverviewMap() {
           );
         })}
 
-        {hoveredZone && (
+        {hoveredZone?.bbox && (
           <div
             className="zone-hover-tooltip"
             style={{
