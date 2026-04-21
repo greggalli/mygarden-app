@@ -1,33 +1,59 @@
 // src/components/ZoneCard.jsx
 import React from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-export default function ZoneCard({ zone, plantCount }) {
+export default function ZoneCard({ zone, onEdit, onDelete }) {
+  const navigate = useNavigate();
+  const plantCount = zone.planting_count ?? 0;
+
+  const openDetails = () => {
+    navigate(`/zones/${zone.id}`);
+  };
+
   return (
-    <Link
-      to={`/zones/${zone.id}`}
-      className="zone-card zone-card-rich"
-      style={{ borderColor: zone.color }}
+    <article
+      className="zone-card zone-list-card"
+      onClick={openDetails}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openDetails();
+        }
+      }}
+      tabIndex={0}
     >
-      <div className="zone-card-header">
+      <div className="zone-list-line1">
         <h3>{zone.name}</h3>
-        <span className="zone-chip" style={{ backgroundColor: zone.color }}>
-          {plantCount} plante{plantCount > 1 ? "s" : ""}
-        </span>
+        <p className="zone-desc">{zone.description || "—"}</p>
       </div>
 
-      <p className="zone-desc">{zone.description}</p>
-
-      <div className="zone-extra">
-        <div className="zone-extra-label">Coordonnées :</div>
-        <div className="zone-extra-value">
-          {zone.shape && zone.shape.length
-            ? zone.shape
-                .map((pt) => `(${pt.x_pct}%, ${pt.y_pct}%)`)
-                .join(" • ")
-            : "n/a"}
+      <div className="zone-list-line2">
+        <div className="zone-list-count">
+          {plantCount} plantation{plantCount > 1 ? "s" : ""}
+        </div>
+        <div className="zone-list-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(zone.id);
+            }}
+          >
+            Modifier
+          </button>
+          <button
+            type="button"
+            className="btn-danger"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(zone);
+            }}
+          >
+            Supprimer
+          </button>
         </div>
       </div>
-    </Link>
+    </article>
   );
 }

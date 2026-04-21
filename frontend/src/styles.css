@@ -291,6 +291,47 @@ button {
   gap: 1rem;
 }
 
+.zones-list-management {
+  max-width: 900px;
+}
+
+.zone-list-card {
+  border: 1px solid #d7e6da;
+  border-radius: 10px;
+  padding: 0.8rem;
+  cursor: pointer;
+}
+
+.zone-list-card:hover {
+  background: #f6fbf7;
+}
+
+.zone-list-line1 h3 {
+  margin: 0;
+}
+
+.zone-list-line1 .zone-desc {
+  margin: 0.25rem 0 0;
+}
+
+.zone-list-line2 {
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.zone-list-count {
+  font-size: 0.95rem;
+  color: #315f3f;
+}
+
+.zone-list-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
 .zone-card-rich {
   background: #fff;
   border: 2px solid #6BAF4A; /* pourra être overridé inline avec zone.color */
@@ -986,6 +1027,19 @@ button {
   color: #fff;
 }
 
+.btn-danger {
+  background: #b71c1c;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background: #8f1717;
+}
+
 /* =========================================================
    PAGE AJOUT (/add-plant) : espèce + plantation
 ========================================================= */
@@ -1112,4 +1166,3 @@ button {
   background: #b71c1c;
   color: #fff;
 }
-

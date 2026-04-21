@@ -1,33 +1,60 @@
 import React from "react";
-import GardenOverviewMap from "../components/GardenOverviewMap";
-import ZoneCard from "../components/ZoneCard";
+import { useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import ZoneCard from "../components/ZoneCard";
 
 export default function ZonesPage() {
-  const { data } = useGardenData();
-  const { zones, instances } = data;
+  const navigate = useNavigate();
+  const { data, deleteZone } = useGardenData();
+  const { zones } = data;
 
-  const countPlantsInZone = (zoneId) =>
-    instances.filter((inst) => inst.zone_id === zoneId).length;
+  const handleDelete = async (zone) => {
+    const hasPlantings = (zone.planting_count || 0) > 0;
+    if (hasPlantings) {
+      alert("Suppression impossible : cette zone a des plantations liées.");
+      return;
+    }
+
+    const ok = window.confirm(`Supprimer définitivement la zone \"${zone.name}\" ?`);
+    if (!ok) return;
+
+    try {
+      await deleteZone(zone.id);
+    } catch (error) {
+      alert(error.message || "Suppression impossible.");
+    }
+  };
 
   return (
-    <div className="zones-page-2col">
-      <div className="zones-left-col">
-        <h2 className="section-title">Plan général du jardin</h2>
-        <GardenOverviewMap />
+    <div className="species-page">
+      <div className="species-header">
+        <div className="species-header-main">
+          <div className="plants-title-row">
+            <h2 className="section-title">Gestion des zones</h2>
+            <button
+              type="button"
+              className="btn-secondary plants-add-button"
+              onClick={() => navigate("/zones/new")}
+            >
+              Ajouter une zone
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="zones-right-col">
-        <h2 className="section-title">Zones du jardin</h2>
-        <div className="zones-list">
-          {zones.map((z) => (
+      <div className="zones-list zones-list-management">
+        {zones.length === 0 ? (
+          <div className="species-empty">Aucune zone enregistrée.</div>
+        ) : (
+          zones.map((zone) => (
             <ZoneCard
-              key={z.id}
-              zone={z}
-              plantCount={countPlantsInZone(z.id)}
+              key={zone.id}
+              zone={zone}
+              onEdit={(zoneId) => navigate(`/zones/${zoneId}/edit`)}
+              onDelete={handleDelete}
             />
-          ))}
-        </div>
+          ))
+        )}
       </div>
     </div>
   );
