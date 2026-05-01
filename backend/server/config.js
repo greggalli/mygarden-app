@@ -27,6 +27,20 @@ function resolvePath(value, fallbackRelativeToBackend) {
   return path.isAbsolute(raw) ? raw : path.resolve(backendRoot, raw);
 }
 
+function buildDatabaseUrl() {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  const host = process.env.POSTGRES_HOST;
+  const port = process.env.POSTGRES_PORT || "5432";
+  const db = process.env.POSTGRES_DB;
+  const user = process.env.POSTGRES_USER;
+  const pass = process.env.POSTGRES_PASSWORD;
+  if (!host && !db && !user && !pass) return null;
+  if (!host || !db || !user || !pass) {
+    throw new Error("Incomplete PostgreSQL configuration. Use DATABASE_URL or set POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD.");
+  }
+  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${port}/${db}`;
+}
+
 function parsePort(rawPort) {
   const port = Number.parseInt(rawPort || "3000", 10);
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
@@ -39,12 +53,11 @@ const config = {
   backendRoot,
   projectRoot,
   port: parsePort(process.env.PORT),
-  dbPath: resolvePath(process.env.DB_PATH, "../data/db/garden.sqlite"),
+  databaseUrl: buildDatabaseUrl(),
   imageDir: resolvePath(process.env.IMAGE_DIR, "../data/images"),
   corsOrigin: process.env.CORS_ORIGIN || "*"
 };
 
-fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
 fs.mkdirSync(config.imageDir, { recursive: true });
 fs.mkdirSync(path.join(config.imageDir, "species"), { recursive: true });
 

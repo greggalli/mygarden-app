@@ -11,8 +11,7 @@ const { config } = require("./config");
 const { imageDir: IMAGES_ROOT, port: PORT, corsOrigin } = config;
 const SPECIES_IMAGES_DIR = path.join(IMAGES_ROOT, "species");
 
-initializeSchema();
-seedIfEmpty(db);
+
 fs.mkdirSync(SPECIES_IMAGES_DIR, { recursive: true });
 
 function corsHeaders(extra = {}) {
@@ -145,13 +144,13 @@ function parseZoneCoordinates(rawValue) {
   throw new Error("Coordinates must be an array or JSON array string");
 }
 
-function loadBootstrapData() {
-  const zoneGeometries = db.prepare("SELECT * FROM zone_geometries ORDER BY id").all();
+async function loadBootstrapData() {
+  const zoneGeometries = await db.prepare("SELECT * FROM zone_geometries ORDER BY id").all();
   const geometryByZoneId = new Map(zoneGeometries.map((z) => [z.zone_id, parseJson(z.geometry_json, {})]));
-  const plantationCounts = db.prepare("SELECT zone_id, COUNT(*) AS count FROM plantations WHERE zone_id IS NOT NULL GROUP BY zone_id").all();
+  const plantationCounts = await db.prepare("SELECT zone_id, COUNT(*) AS count FROM plantations WHERE zone_id IS NOT NULL GROUP BY zone_id").all();
   const plantingCountByZoneId = new Map(plantationCounts.map((row) => [row.zone_id, row.count]));
 
-  const zones = db.prepare("SELECT * FROM zones ORDER BY name COLLATE NOCASE").all().map((zone) => {
+  const zones = (await db.prepare("SELECT * FROM zones ORDER BY LOWER(name)").all()).map((zone) => {
     const g = geometryByZoneId.get(zone.id) || {};
     const coordinates = parseCoordinatesFromGeometry(g);
     return {
@@ -170,12 +169,12 @@ function loadBootstrapData() {
   });
 
   return {
-    species: db.prepare("SELECT * FROM species ORDER BY common_name COLLATE NOCASE").all().map(toSpeciesRow),
+    species: (await db.prepare("SELECT * FROM species ORDER BY LOWER(common_name)").all()).map(toSpeciesRow),
     zones,
     zoneGeometries,
-    plantations: db.prepare("SELECT * FROM plantations ORDER BY id").all().map(toPlantationRow),
-    tasks: db.prepare("SELECT * FROM tasks ORDER BY id").all(),
-    speciesPhotos: db.prepare("SELECT * FROM species_photos ORDER BY species_id, sort_order, id").all().map(toPhotoRow)
+    plantations: (await db.prepare("SELECT * FROM plantations ORDER BY id").all()).map(toPlantationRow),
+    tasks: await db.prepare("SELECT * FROM tasks ORDER BY id").all(),
+    speciesPhotos: (await db.prepare("SELECT * FROM species_photos ORDER BY species_id, sort_order, id").all()).map(toPhotoRow)
   };
 }
 
@@ -218,18 +217,18 @@ async function handleRequest(req, res) {
   }
 
   if (method === "GET" && url.pathname === "/api/bootstrap") {
-    json(res, 200, loadBootstrapData());
+    json(res, 200, await loadBootstrapData());
     return;
   }
 
   if (method === "GET" && url.pathname === "/api/zones") {
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT z.*, zg.geometry_json, COUNT(p.id) AS planting_count
       FROM zones z
       LEFT JOIN zone_geometries zg ON zg.zone_id = z.id
       LEFT JOIN plantations p ON p.zone_id = z.id
       GROUP BY z.id
-      ORDER BY z.name COLLATE NOCASE
+      ORDER BY LOWER(z.name)
     `).all();
     json(res, 200, rows.map((row) => serializeZone(row, row, row.planting_count)));
     return;
@@ -238,7 +237,7 @@ async function handleRequest(req, res) {
   const zoneMatch = url.pathname.match(/^\/api\/zones\/(\d+)$/);
   if (zoneMatch && method === "GET") {
     const id = Number(zoneMatch[1]);
-    const row = db.prepare(`
+    const row = await db.prepare(`
       SELECT z.*, zg.geometry_json, COUNT(p.id) AS planting_count
       FROM zones z
       LEFT JOIN zone_geometries zg ON zg.zone_id = z.id
@@ -264,7 +263,7 @@ async function handleRequest(req, res) {
       return json(res, 400, { error: error.message });
     }
     const now = new Date().toISOString();
-    const maxId = db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM zones").get().id;
+    const maxId = await db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM zones").get().id;
     const id = Number.isInteger(payload.id) ? payload.id : maxId + 1;
 
     const existingGeometry = parseJson(payload.geometry_json, {});
@@ -274,20 +273,20 @@ async function handleRequest(req, res) {
       coordinates
     };
 
-    db.exec("BEGIN");
+    await db.exec("BEGIN");
     try {
       db.prepare("INSERT INTO zones (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
         .run(id, name, (payload.description || "").trim() || null, now, now);
       db.prepare("INSERT INTO zone_geometries (zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?)")
         .run(id, JSON.stringify(nextGeometry), now, now);
-      db.exec("COMMIT");
+      await db.exec("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      await db.exec("ROLLBACK");
       throw error;
     }
 
-    const created = db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
-    const geometry = db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
+    const created = await db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
+    const geometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
     json(res, 201, serializeZone(created, geometry, 0));
     return;
   }
@@ -295,19 +294,19 @@ async function handleRequest(req, res) {
   if (method === "POST" && url.pathname === "/api/species") {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const now = new Date().toISOString();
-    const maxId = db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM species").get().id;
+    const maxId = await db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM species").get().id;
     const id = Number.isInteger(payload.id) ? payload.id : maxId + 1;
 
     db.prepare("INSERT INTO species (id, common_name, scientific_name, family, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(id, (payload.common_name || "").trim(), payload.scientific_name || null, payload.family || null, payload.pruning_period || null, payload.flowering_period || null, payload.care_tips || null, payload.notes || null, JSON.stringify(payload.external_links || []), now, now);
 
-    json(res, 201, toSpeciesRow(db.prepare("SELECT * FROM species WHERE id = ?").get(id)));
+    json(res, 201, toSpeciesRow(await db.prepare("SELECT * FROM species WHERE id = ?").get(id)));
     return;
   }
 
   if (zoneMatch && method === "PUT") {
     const id = Number(zoneMatch[1]);
-    const existing = db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
+    const existing = await db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
     if (!existing) return json(res, 404, { error: "Zone not found" });
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const name = (payload.name ?? existing.name ?? "").trim();
@@ -320,21 +319,21 @@ async function handleRequest(req, res) {
       coordinates = payload.coordinates !== undefined
         ? parseZoneCoordinates(payload.coordinates)
         : parseCoordinatesFromGeometry(
-          parseJson(db.prepare("SELECT geometry_json FROM zone_geometries WHERE zone_id = ?").get(id)?.geometry_json, {})
+          parseJson(await db.prepare("SELECT geometry_json FROM zone_geometries WHERE zone_id = ?").get(id)?.geometry_json, {})
         );
     } catch (error) {
       return json(res, 400, { error: error.message });
     }
     const now = new Date().toISOString();
 
-    const existingGeometry = db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
+    const existingGeometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
     const mergedGeometry = {
       ...parseJson(existingGeometry?.geometry_json, {}),
       shape: coordinates,
       coordinates
     };
 
-    db.exec("BEGIN");
+    await db.exec("BEGIN");
     try {
       db.prepare("UPDATE zones SET name = ?, description = ?, updated_at = ? WHERE id = ?")
         .run(name, description, now, id);
@@ -345,26 +344,26 @@ async function handleRequest(req, res) {
         db.prepare("INSERT INTO zone_geometries (zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?)")
           .run(id, JSON.stringify(mergedGeometry), now, now);
       }
-      db.exec("COMMIT");
+      await db.exec("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      await db.exec("ROLLBACK");
       throw error;
     }
 
-    const updatedZone = db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
-    const updatedGeometry = db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
-    const plantingCount = db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id).count;
+    const updatedZone = await db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
+    const updatedGeometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
+    const plantingCount = await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id).count;
     json(res, 200, serializeZone(updatedZone, updatedGeometry, plantingCount));
     return;
   }
 
   if (zoneMatch && method === "DELETE") {
     const id = Number(zoneMatch[1]);
-    const zone = db.prepare("SELECT id FROM zones WHERE id = ?").get(id);
+    const zone = await db.prepare("SELECT id FROM zones WHERE id = ?").get(id);
     if (!zone) return json(res, 404, { error: "Zone not found" });
-    const linked = db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id).count;
+    const linked = await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id).count;
     if (linked > 0) return json(res, 409, { error: "Zone has linked plantations and cannot be deleted" });
-    db.prepare("DELETE FROM zones WHERE id = ?").run(id);
+    await db.prepare("DELETE FROM zones WHERE id = ?").run(id);
     noContent(res);
     return;
   }
@@ -372,7 +371,7 @@ async function handleRequest(req, res) {
   const speciesMatch = url.pathname.match(/^\/api\/species\/(\d+)$/);
   if (speciesMatch && method === "PUT") {
     const id = Number(speciesMatch[1]);
-    const existing = db.prepare("SELECT * FROM species WHERE id = ?").get(id);
+    const existing = await db.prepare("SELECT * FROM species WHERE id = ?").get(id);
     if (!existing) return json(res, 404, { error: "Species not found" });
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const merged = { ...toSpeciesRow(existing), ...payload };
@@ -380,23 +379,23 @@ async function handleRequest(req, res) {
     db.prepare("UPDATE species SET common_name=?, scientific_name=?, family=?, pruning_period=?, flowering_period=?, care_tips=?, notes=?, external_links_json=?, updated_at=? WHERE id=?")
       .run((merged.common_name || "").trim(), merged.scientific_name || null, merged.family || null, merged.pruning_period || null, merged.flowering_period || null, merged.care_tips || null, merged.notes || null, JSON.stringify(merged.external_links || []), new Date().toISOString(), id);
 
-    json(res, 200, toSpeciesRow(db.prepare("SELECT * FROM species WHERE id = ?").get(id)));
+    json(res, 200, toSpeciesRow(await db.prepare("SELECT * FROM species WHERE id = ?").get(id)));
     return;
   }
 
   if (speciesMatch && method === "DELETE") {
     const id = Number(speciesMatch[1]);
-    const linked = db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE species_id = ?").get(id).count;
+    const linked = await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE species_id = ?").get(id).count;
     if (linked > 0) return json(res, 409, { error: "Species has linked plantations" });
 
-    const photos = db.prepare("SELECT relative_path FROM species_photos WHERE species_id = ?").all(id);
-    db.exec("BEGIN");
+    const photos = await db.prepare("SELECT relative_path FROM species_photos WHERE species_id = ?").all(id);
+    await db.exec("BEGIN");
     try {
-      db.prepare("DELETE FROM species_photos WHERE species_id = ?").run(id);
-      db.prepare("DELETE FROM species WHERE id = ?").run(id);
-      db.exec("COMMIT");
+      await db.prepare("DELETE FROM species_photos WHERE species_id = ?").run(id);
+      await db.prepare("DELETE FROM species WHERE id = ?").run(id);
+      await db.exec("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      await db.exec("ROLLBACK");
       throw error;
     }
 
@@ -408,7 +407,7 @@ async function handleRequest(req, res) {
   const photosPost = url.pathname.match(/^\/api\/species\/(\d+)\/photos$/);
   if (photosPost && method === "POST") {
     const speciesId = Number(photosPost[1]);
-    const species = db.prepare("SELECT id FROM species WHERE id = ?").get(speciesId);
+    const species = await db.prepare("SELECT id FROM species WHERE id = ?").get(speciesId);
     if (!species) return json(res, 404, { error: "Species not found" });
 
     const mimeType = req.headers["content-type"] || "application/octet-stream";
@@ -424,11 +423,11 @@ async function handleRequest(req, res) {
     const fileBuffer = await readBody(req);
     await fsp.writeFile(absolutePath, fileBuffer);
 
-    const count = db.prepare("SELECT COUNT(*) AS count FROM species_photos WHERE species_id = ?").get(speciesId).count;
+    const count = await db.prepare("SELECT COUNT(*) AS count FROM species_photos WHERE species_id = ?").get(speciesId).count;
     db.prepare("INSERT INTO species_photos (species_id, filename, original_filename, mime_type, relative_path, size_bytes, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
       .run(speciesId, stored, originalFilename, String(mimeType), relativePath, fileBuffer.length, new Date().toISOString(), count);
 
-    const created = db.prepare("SELECT * FROM species_photos WHERE id = last_insert_rowid()").get();
+    const created = (await db.prepare("SELECT * FROM species_photos WHERE species_id = ? ORDER BY id DESC LIMIT 1").get(speciesId));
     json(res, 201, { photo: toPhotoRow(created) });
     return;
   }
@@ -437,10 +436,10 @@ async function handleRequest(req, res) {
   if (photoDelete && method === "DELETE") {
     const speciesId = Number(photoDelete[1]);
     const photoId = Number(photoDelete[2]);
-    const row = db.prepare("SELECT * FROM species_photos WHERE id = ? AND species_id = ?").get(photoId, speciesId);
+    const row = await db.prepare("SELECT * FROM species_photos WHERE id = ? AND species_id = ?").get(photoId, speciesId);
     if (!row) return json(res, 404, { error: "Photo not found" });
 
-    db.prepare("DELETE FROM species_photos WHERE id = ?").run(photoId);
+    await db.prepare("DELETE FROM species_photos WHERE id = ?").run(photoId);
     fs.rmSync(path.join(IMAGES_ROOT, row.relative_path), { force: true });
     noContent(res);
     return;
@@ -448,37 +447,37 @@ async function handleRequest(req, res) {
 
   if (method === "POST" && url.pathname === "/api/plantations") {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
-    const maxId = db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM plantations").get().id;
+    const maxId = await db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM plantations").get().id;
     const id = Number.isInteger(payload.id) ? payload.id : maxId + 1;
     const now = new Date().toISOString();
     db.prepare("INSERT INTO plantations (id, species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(id, payload.species_id, payload.zone_id || null, payload.planted_at || payload.planting_date || null, payload.quantity || 1, payload.notes || null, payload.nickname || null, JSON.stringify(payload.position || null), now, now);
-    json(res, 201, toPlantationRow(db.prepare("SELECT * FROM plantations WHERE id = ?").get(id)));
+    json(res, 201, toPlantationRow(await db.prepare("SELECT * FROM plantations WHERE id = ?").get(id)));
     return;
   }
 
   const plantMatch = url.pathname.match(/^\/api\/plantations\/(\d+)$/);
   if (plantMatch && method === "PUT") {
     const id = Number(plantMatch[1]);
-    const existing = db.prepare("SELECT * FROM plantations WHERE id = ?").get(id);
+    const existing = await db.prepare("SELECT * FROM plantations WHERE id = ?").get(id);
     if (!existing) return json(res, 404, { error: "Plantation not found" });
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const merged = { ...toPlantationRow(existing), ...payload };
 
     db.prepare("UPDATE plantations SET species_id=?, zone_id=?, planted_at=?, quantity=?, notes=?, nickname=?, position_json=?, updated_at=? WHERE id=?")
       .run(merged.species_id, merged.zone_id || null, merged.planted_at || merged.planting_date || null, merged.quantity || 1, merged.notes || null, merged.nickname || null, JSON.stringify(merged.position || null), new Date().toISOString(), id);
-    json(res, 200, toPlantationRow(db.prepare("SELECT * FROM plantations WHERE id = ?").get(id)));
+    json(res, 200, toPlantationRow(await db.prepare("SELECT * FROM plantations WHERE id = ?").get(id)));
     return;
   }
 
   if (plantMatch && method === "DELETE") {
-    db.prepare("DELETE FROM plantations WHERE id = ?").run(Number(plantMatch[1]));
+    await db.prepare("DELETE FROM plantations WHERE id = ?").run(Number(plantMatch[1]));
     noContent(res);
     return;
   }
 
   if (method === "GET" && url.pathname === "/api/admin/export") {
-    const data = loadBootstrapData();
+    const data = await loadBootstrapData();
     const speciesPhotos = [];
     for (const photo of data.speciesPhotos) {
       const file = await fsp.readFile(path.join(IMAGES_ROOT, photo.relativePath));
@@ -512,7 +511,7 @@ async function handleRequest(req, res) {
     const data = payload.data || {};
     const now = new Date().toISOString();
 
-    db.exec("BEGIN");
+    await db.exec("BEGIN");
     try {
       db.exec("DELETE FROM species_photos; DELETE FROM plantations; DELETE FROM zone_geometries; DELETE FROM zones; DELETE FROM species; DELETE FROM tasks;");
 
@@ -531,9 +530,9 @@ async function handleRequest(req, res) {
       const insTask = db.prepare("INSERT INTO tasks (id, plant_instance_id, zone_id, due_date, action, status, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
       (data.tasks || []).forEach((t) => insTask.run(t.id, t.plant_instance_id || null, t.zone_id || null, t.due_date || null, t.action || null, t.status || null, t.notes || null, t.created_at || now, t.updated_at || now));
 
-      db.exec("COMMIT");
+      await db.exec("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      await db.exec("ROLLBACK");
       throw error;
     }
 
@@ -560,6 +559,11 @@ async function handleRequest(req, res) {
   json(res, 404, { error: "Not found" });
 }
 
+async function start() {
+  await initializeSchema();
+  await seedIfEmpty(db);
+  fs.mkdirSync(SPECIES_IMAGES_DIR, { recursive: true });
+
 const server = http.createServer((req, res) => {
   handleRequest(req, res).catch((error) => {
     json(res, 500, { error: error.message || "Server error" });
@@ -569,4 +573,11 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`MyGarden API running on http://localhost:${PORT}`);
+});
+}
+
+start().catch((error) => {
+  // eslint-disable-next-line no-console
+  console.error(error);
+  process.exit(1);
 });
