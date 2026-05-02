@@ -144,6 +144,17 @@ function parseZoneCoordinates(rawValue) {
   throw new Error("Coordinates must be an array or JSON array string");
 }
 
+function parseOptionalInteger(rawValue, fieldName) {
+  if (rawValue === undefined || rawValue === null || rawValue === "") {
+    return null;
+  }
+  const parsed = Number(rawValue);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`Invalid integer for ${fieldName}: ${JSON.stringify(rawValue)}`);
+  }
+  return parsed;
+}
+
 async function loadBootstrapData() {
   const zoneGeometries = await db.prepare("SELECT * FROM zone_geometries ORDER BY id").all();
   const geometryByZoneId = new Map(zoneGeometries.map((z) => [z.zone_id, parseJson(z.geometry_json, {})]));
@@ -264,9 +275,28 @@ async function handleRequest(req, res) {
     }
     const now = new Date().toISOString();
     const maxId = await db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM zones").get().id;
-    const id = Number.isInteger(payload.id) ? payload.id : maxId + 1;
+    let requestedId;
+    try {
+      requestedId = parseOptionalInteger(payload.id, "zones.id");
+    } catch (error) {
+      console.error("[POST /api/zones] Invalid zone id in payload", {
+        payloadId: payload.id,
+        payloadName: payload.name,
+        payloadKeys: Object.keys(payload || {})
+      });
+      return json(res, 400, { error: error.message });
+    }
+    const id = requestedId ?? maxId + 1;
 
     const existingGeometry = parseJson(payload.geometry_json, {});
+    console.debug("[POST /api/zones] Creating zone", {
+      id,
+      name,
+      coordinatesCount: coordinates.length,
+      hasGeometryJson: Boolean(payload.geometry_json),
+      hasCustomColor: Boolean(payload.color),
+      zoneType: payload.zone_type || null
+    });
     const nextGeometry = {
       ...existingGeometry,
       shape: coordinates,
