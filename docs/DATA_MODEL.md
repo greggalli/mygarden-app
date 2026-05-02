@@ -2,9 +2,9 @@
 
 ## Persistent storage (server-side)
 
-The application now persists data on the backend using SQLite and file storage for images.
+The application now persists data on the backend using PostgreSQL and file storage for images.
 
-### SQLite tables
+### PostgreSQL tables
 
 #### species
 - id (PK)
