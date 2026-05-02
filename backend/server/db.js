@@ -7,6 +7,12 @@ if (!config.databaseUrl) {
 
 const pool = new Pool({ connectionString: config.databaseUrl });
 
+/**
+ * Parameter binding notes:
+ * - Application code should pass native JS numbers for INTEGER columns.
+ * - PostgreSQL rejects non-integer strings such as "NaN" for INTEGER fields.
+ * - Validate external payload values in route handlers before calling db.prepare(...).run(...).
+ */
 function toPgSql(sql) {
   let i = 0;
   return sql.replace(/\?/g, () => `$${++i}`);
