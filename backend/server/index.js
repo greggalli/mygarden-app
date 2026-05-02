@@ -274,28 +274,9 @@ async function handleRequest(req, res) {
       return json(res, 400, { error: error.message });
     }
     const now = new Date().toISOString();
-    const maxId = await db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM zones").get().id;
-    let requestedId;
-    // Some clients still send id as NaN when creating zones; treat that as "no explicit id".
-    const rawZoneId = typeof payload.id === "string" ? payload.id.trim() : payload.id;
-    const shouldIgnoreZoneId =
-      rawZoneId === "NaN" ||
-      (typeof rawZoneId === "number" && Number.isNaN(rawZoneId));
-    try {
-      requestedId = shouldIgnoreZoneId ? null : parseOptionalInteger(rawZoneId, "zones.id");
-    } catch (error) {
-      console.error("[POST /api/zones] Invalid zone id in payload", {
-        payloadId: payload.id,
-        payloadName: payload.name,
-        payloadKeys: Object.keys(payload || {})
-      });
-      return json(res, 400, { error: error.message });
-    }
-    const id = requestedId ?? maxId + 1;
 
     const existingGeometry = parseJson(payload.geometry_json, {});
     console.debug("[POST /api/zones] Creating zone", {
-      id,
       name,
       coordinatesCount: coordinates.length,
       hasGeometryJson: Boolean(payload.geometry_json),
@@ -308,20 +289,15 @@ async function handleRequest(req, res) {
       coordinates
     };
 
-    await db.exec("BEGIN");
-    try {
-      db.prepare("INSERT INTO zones (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
-        .run(id, name, (payload.description || "").trim() || null, now, now);
-      db.prepare("INSERT INTO zone_geometries (zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?)")
-        .run(id, JSON.stringify(nextGeometry), now, now);
-      await db.exec("COMMIT");
-    } catch (error) {
-      await db.exec("ROLLBACK");
-      throw error;
-    }
+    const created = await db.tx(async (tx) => {
+      const inserted = await tx.prepare("INSERT INTO zones (name, description, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING *")
+        .get(name, (payload.description || "").trim() || null, now, now);
+      await tx.prepare("INSERT INTO zone_geometries (zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?)")
+        .run(inserted.id, JSON.stringify(nextGeometry), now, now);
+      return inserted;
+    });
 
-    const created = await db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
-    const geometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
+    const geometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(created.id);
     json(res, 201, serializeZone(created, geometry, 0));
     return;
   }
@@ -329,13 +305,10 @@ async function handleRequest(req, res) {
   if (method === "POST" && url.pathname === "/api/species") {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const now = new Date().toISOString();
-    const maxId = await db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM species").get().id;
-    const id = Number.isInteger(payload.id) ? payload.id : maxId + 1;
+    const created = await db.prepare("INSERT INTO species (common_name, scientific_name, family, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *")
+      .get((payload.common_name || "").trim(), payload.scientific_name || null, payload.family || null, payload.pruning_period || null, payload.flowering_period || null, payload.care_tips || null, payload.notes || null, JSON.stringify(payload.external_links || []), now, now);
 
-    db.prepare("INSERT INTO species (id, common_name, scientific_name, family, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(id, (payload.common_name || "").trim(), payload.scientific_name || null, payload.family || null, payload.pruning_period || null, payload.flowering_period || null, payload.care_tips || null, payload.notes || null, JSON.stringify(payload.external_links || []), now, now);
-
-    json(res, 201, toSpeciesRow(await db.prepare("SELECT * FROM species WHERE id = ?").get(id)));
+    json(res, 201, toSpeciesRow(created));
     return;
   }
 
@@ -368,22 +341,17 @@ async function handleRequest(req, res) {
       coordinates
     };
 
-    await db.exec("BEGIN");
-    try {
-      db.prepare("UPDATE zones SET name = ?, description = ?, updated_at = ? WHERE id = ?")
+    await db.tx(async (tx) => {
+      await tx.prepare("UPDATE zones SET name = ?, description = ?, updated_at = ? WHERE id = ?")
         .run(name, description, now, id);
       if (existingGeometry) {
-        db.prepare("UPDATE zone_geometries SET geometry_json = ?, updated_at = ? WHERE zone_id = ?")
+        await tx.prepare("UPDATE zone_geometries SET geometry_json = ?, updated_at = ? WHERE zone_id = ?")
           .run(JSON.stringify(mergedGeometry), now, id);
       } else {
-        db.prepare("INSERT INTO zone_geometries (zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?)")
+        await tx.prepare("INSERT INTO zone_geometries (zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?)")
           .run(id, JSON.stringify(mergedGeometry), now, now);
       }
-      await db.exec("COMMIT");
-    } catch (error) {
-      await db.exec("ROLLBACK");
-      throw error;
-    }
+    });
 
     const updatedZone = await db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
     const updatedGeometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
@@ -424,15 +392,10 @@ async function handleRequest(req, res) {
     if (linked > 0) return json(res, 409, { error: "Species has linked plantations" });
 
     const photos = await db.prepare("SELECT relative_path FROM species_photos WHERE species_id = ?").all(id);
-    await db.exec("BEGIN");
-    try {
-      await db.prepare("DELETE FROM species_photos WHERE species_id = ?").run(id);
-      await db.prepare("DELETE FROM species WHERE id = ?").run(id);
-      await db.exec("COMMIT");
-    } catch (error) {
-      await db.exec("ROLLBACK");
-      throw error;
-    }
+    await db.tx(async (tx) => {
+      await tx.prepare("DELETE FROM species_photos WHERE species_id = ?").run(id);
+      await tx.prepare("DELETE FROM species WHERE id = ?").run(id);
+    });
 
     photos.forEach((p) => fs.rmSync(path.join(IMAGES_ROOT, p.relative_path), { force: true }));
     noContent(res);
@@ -482,12 +445,10 @@ async function handleRequest(req, res) {
 
   if (method === "POST" && url.pathname === "/api/plantations") {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
-    const maxId = await db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM plantations").get().id;
-    const id = Number.isInteger(payload.id) ? payload.id : maxId + 1;
     const now = new Date().toISOString();
-    db.prepare("INSERT INTO plantations (id, species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(id, payload.species_id, payload.zone_id || null, payload.planted_at || payload.planting_date || null, payload.quantity || 1, payload.notes || null, payload.nickname || null, JSON.stringify(payload.position || null), now, now);
-    json(res, 201, toPlantationRow(await db.prepare("SELECT * FROM plantations WHERE id = ?").get(id)));
+    const created = await db.prepare("INSERT INTO plantations (species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *")
+      .get(payload.species_id, payload.zone_id || null, payload.planted_at || payload.planting_date || null, payload.quantity || 1, payload.notes || null, payload.nickname || null, JSON.stringify(payload.position || null), now, now);
+    json(res, 201, toPlantationRow(created));
     return;
   }
 
@@ -546,30 +507,34 @@ async function handleRequest(req, res) {
     const data = payload.data || {};
     const now = new Date().toISOString();
 
-    await db.exec("BEGIN");
-    try {
-      db.exec("DELETE FROM species_photos; DELETE FROM plantations; DELETE FROM zone_geometries; DELETE FROM zones; DELETE FROM species; DELETE FROM tasks;");
+    await db.tx(async (tx) => {
+      await tx.exec("DELETE FROM species_photos; DELETE FROM plantations; DELETE FROM zone_geometries; DELETE FROM zones; DELETE FROM species; DELETE FROM tasks;");
 
-      const insSpecies = db.prepare("INSERT INTO species (id, common_name, scientific_name, family, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      (data.species || []).forEach((sp) => insSpecies.run(sp.id, sp.common_name || "", sp.scientific_name || null, sp.family || null, sp.pruning_period || null, sp.flowering_period || null, sp.care_tips || null, sp.notes || null, JSON.stringify(sp.external_links || []), sp.created_at || now, sp.updated_at || now));
+      const insSpecies = tx.prepare("INSERT INTO species (id, common_name, scientific_name, family, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      for (const sp of (data.species || [])) {
+        await insSpecies.run(sp.id, sp.common_name || "", sp.scientific_name || null, sp.family || null, sp.pruning_period || null, sp.flowering_period || null, sp.care_tips || null, sp.notes || null, JSON.stringify(sp.external_links || []), sp.created_at || now, sp.updated_at || now);
+      }
 
-      const insZone = db.prepare("INSERT INTO zones (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)");
-      (data.zones || []).forEach((zone) => insZone.run(zone.id, zone.name || "", zone.description || null, zone.created_at || now, zone.updated_at || now));
+      const insZone = tx.prepare("INSERT INTO zones (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)");
+      for (const zone of (data.zones || [])) {
+        await insZone.run(zone.id, zone.name || "", zone.description || null, zone.created_at || now, zone.updated_at || now);
+      }
 
-      const insGeom = db.prepare("INSERT INTO zone_geometries (id, zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?)");
-      (data.zoneGeometries || []).forEach((g, idx) => insGeom.run(g.id || idx + 1, g.zoneId || g.zone_id, JSON.stringify(g.geometryJson || g.geometry_json || {}), now, now));
+      const insGeom = tx.prepare("INSERT INTO zone_geometries (id, zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?)");
+      for (const [idx, g] of (data.zoneGeometries || []).entries()) {
+        await insGeom.run(g.id || idx + 1, g.zoneId || g.zone_id, JSON.stringify(g.geometryJson || g.geometry_json || {}), now, now);
+      }
 
-      const insPlant = db.prepare("INSERT INTO plantations (id, species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      (data.plantations || []).forEach((p) => insPlant.run(p.id, p.species_id, p.zone_id || null, p.planted_at || p.planting_date || null, p.quantity || 1, p.notes || null, p.nickname || null, JSON.stringify(p.position || null), p.created_at || now, p.updated_at || now));
+      const insPlant = tx.prepare("INSERT INTO plantations (id, species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      for (const p of (data.plantations || [])) {
+        await insPlant.run(p.id, p.species_id, p.zone_id || null, p.planted_at || p.planting_date || null, p.quantity || 1, p.notes || null, p.nickname || null, JSON.stringify(p.position || null), p.created_at || now, p.updated_at || now);
+      }
 
-      const insTask = db.prepare("INSERT INTO tasks (id, plant_instance_id, zone_id, due_date, action, status, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      (data.tasks || []).forEach((t) => insTask.run(t.id, t.plant_instance_id || null, t.zone_id || null, t.due_date || null, t.action || null, t.status || null, t.notes || null, t.created_at || now, t.updated_at || now));
-
-      await db.exec("COMMIT");
-    } catch (error) {
-      await db.exec("ROLLBACK");
-      throw error;
-    }
+      const insTask = tx.prepare("INSERT INTO tasks (id, plant_instance_id, zone_id, due_date, action, status, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      for (const t of (data.tasks || [])) {
+        await insTask.run(t.id, t.plant_instance_id || null, t.zone_id || null, t.due_date || null, t.action || null, t.status || null, t.notes || null, t.created_at || now, t.updated_at || now);
+      }
+    });
 
     fs.rmSync(SPECIES_IMAGES_DIR, { recursive: true, force: true });
     fs.mkdirSync(SPECIES_IMAGES_DIR, { recursive: true });
@@ -584,7 +549,7 @@ async function handleRequest(req, res) {
       const stored = `${Date.now()}-${randomUUID()}${path.extname(photo.filename || "") || inferExt(mimeType)}`;
       const relativePath = path.posix.join("species", stored);
       await fsp.writeFile(path.join(IMAGES_ROOT, relativePath), raw);
-      insPhoto.run(photo.id || i + 1, photo.speciesId, stored, photo.filename || stored, mimeType, relativePath, raw.length, now, i);
+      await insPhoto.run(photo.id || i + 1, photo.speciesId, stored, photo.filename || stored, mimeType, relativePath, raw.length, now, i);
     }
 
     noContent(res);
