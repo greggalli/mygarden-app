@@ -355,7 +355,7 @@ async function handleRequest(req, res) {
 
     const updatedZone = await db.prepare("SELECT * FROM zones WHERE id = ?").get(id);
     const updatedGeometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
-    const plantingCount = await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id).count;
+    const plantingCount = (await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id)).count;
     json(res, 200, serializeZone(updatedZone, updatedGeometry, plantingCount));
     return;
   }
@@ -364,7 +364,7 @@ async function handleRequest(req, res) {
     const id = Number(zoneMatch[1]);
     const zone = await db.prepare("SELECT id FROM zones WHERE id = ?").get(id);
     if (!zone) return json(res, 404, { error: "Zone not found" });
-    const linked = await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id).count;
+    const linked = (await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE zone_id = ?").get(id)).count;
     if (linked > 0) return json(res, 409, { error: "Zone has linked plantations and cannot be deleted" });
     await db.prepare("DELETE FROM zones WHERE id = ?").run(id);
     noContent(res);
@@ -388,7 +388,7 @@ async function handleRequest(req, res) {
 
   if (speciesMatch && method === "DELETE") {
     const id = Number(speciesMatch[1]);
-    const linked = await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE species_id = ?").get(id).count;
+    const linked = (await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE species_id = ?").get(id)).count;
     if (linked > 0) return json(res, 409, { error: "Species has linked plantations" });
 
     const photos = await db.prepare("SELECT relative_path FROM species_photos WHERE species_id = ?").all(id);
@@ -421,7 +421,7 @@ async function handleRequest(req, res) {
     const fileBuffer = await readBody(req);
     await fsp.writeFile(absolutePath, fileBuffer);
 
-    const count = await db.prepare("SELECT COUNT(*) AS count FROM species_photos WHERE species_id = ?").get(speciesId).count;
+    const count = (await db.prepare("SELECT COUNT(*) AS count FROM species_photos WHERE species_id = ?").get(speciesId)).count;
     db.prepare("INSERT INTO species_photos (species_id, filename, original_filename, mime_type, relative_path, size_bytes, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
       .run(speciesId, stored, originalFilename, String(mimeType), relativePath, fileBuffer.length, new Date().toISOString(), count);
 
