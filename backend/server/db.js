@@ -137,10 +137,9 @@ async function initializeSchema() {
       id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       species_id INTEGER NOT NULL REFERENCES species(id) ON DELETE CASCADE,
       filename TEXT NOT NULL,
-      original_filename TEXT,
       mime_type TEXT NOT NULL,
-      relative_path TEXT NOT NULL,
       size_bytes INTEGER,
+      image_data BYTEA NOT NULL,
       created_at TIMESTAMPTZ NOT NULL,
       sort_order INTEGER NOT NULL DEFAULT 0
     );
@@ -184,6 +183,11 @@ async function initializeSchema() {
     END $$;
 
     -- Backfill and enforce defaults for legacy species_photos rows/schemas.
+    ALTER TABLE species_photos ADD COLUMN IF NOT EXISTS image_data BYTEA;
+    UPDATE species_photos SET image_data = ''::bytea WHERE image_data IS NULL;
+    ALTER TABLE species_photos ALTER COLUMN image_data SET NOT NULL;
+    ALTER TABLE species_photos DROP COLUMN IF EXISTS original_filename;
+    ALTER TABLE species_photos DROP COLUMN IF EXISTS relative_path;
     UPDATE species_photos SET sort_order = 0 WHERE sort_order IS NULL;
     ALTER TABLE species_photos ALTER COLUMN sort_order SET DEFAULT 0;
     ALTER TABLE species_photos ALTER COLUMN sort_order SET NOT NULL;

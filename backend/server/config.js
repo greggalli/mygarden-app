@@ -22,11 +22,6 @@ function loadDotEnv(filePath) {
 
 loadDotEnv(path.join(backendRoot, ".env"));
 
-function resolvePath(value, fallbackRelativeToBackend) {
-  const raw = (value || fallbackRelativeToBackend).trim();
-  return path.isAbsolute(raw) ? raw : path.resolve(backendRoot, raw);
-}
-
 function buildDatabaseUrl() {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   const host = process.env.POSTGRES_HOST;
@@ -54,11 +49,7 @@ const config = {
   projectRoot,
   port: parsePort(process.env.PORT),
   databaseUrl: buildDatabaseUrl(),
-  imageDir: resolvePath(process.env.IMAGE_DIR, "../data/images"),
   corsOrigin: process.env.CORS_ORIGIN || "*"
 };
-
-fs.mkdirSync(config.imageDir, { recursive: true });
-fs.mkdirSync(path.join(config.imageDir, "species"), { recursive: true });
 
 module.exports = { config };

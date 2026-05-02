@@ -1,18 +1,10 @@
 const http = require("http");
-const fs = require("fs");
-const fsp = fs.promises;
-const path = require("path");
-const { randomUUID } = require("crypto");
 
 const { db, initializeSchema } = require("./db");
 const { seedIfEmpty } = require("./seed");
 const { config } = require("./config");
 
-const { imageDir: IMAGES_ROOT, port: PORT, corsOrigin } = config;
-const SPECIES_IMAGES_DIR = path.join(IMAGES_ROOT, "species");
-
-
-fs.mkdirSync(SPECIES_IMAGES_DIR, { recursive: true });
+const { port: PORT, corsOrigin } = config;
 
 function corsHeaders(extra = {}) {
   return {
@@ -88,13 +80,11 @@ function toPhotoRow(row) {
     id: row.id,
     speciesId: row.species_id,
     filename: row.filename,
-    originalFilename: row.original_filename,
     mimeType: row.mime_type,
-    relativePath: row.relative_path,
     size: row.size_bytes,
     createdAt: row.created_at,
     sortOrder: row.sort_order,
-    imageUrl: `/images/${row.relative_path}`
+    imageUrl: `/images/species/${row.id}`
   };
 }
 
@@ -189,13 +179,6 @@ async function loadBootstrapData() {
   };
 }
 
-function inferExt(mimeType = "") {
-  if (mimeType.includes("png")) return ".png";
-  if (mimeType.includes("webp")) return ".webp";
-  if (mimeType.includes("gif")) return ".gif";
-  return ".jpg";
-}
-
 async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const method = req.method || "GET";
@@ -209,21 +192,13 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (url.pathname.startsWith("/images/")) {
-    const relPath = url.pathname.replace("/images/", "");
-    const abs = path.resolve(IMAGES_ROOT, relPath);
-    const imagesRootWithSep = `${IMAGES_ROOT}${path.sep}`;
-    if (abs !== IMAGES_ROOT && !abs.startsWith(imagesRootWithSep)) {
-      json(res, 400, { error: "Invalid image path" });
-      return;
-    }
-    try {
-      const data = await fsp.readFile(abs);
-      res.writeHead(200, corsHeaders({ "Content-Type": "application/octet-stream" }));
-      res.end(data);
-    } catch {
-      json(res, 404, { error: "Image not found" });
-    }
+  const imageGet = url.pathname.match(/^\/images\/species\/(\d+)$/);
+  if (imageGet && method === "GET") {
+    const photoId = Number(imageGet[1]);
+    const row = await db.prepare("SELECT mime_type, image_data FROM species_photos WHERE id = ?").get(photoId);
+    if (!row) return json(res, 404, { error: "Image not found" });
+    res.writeHead(200, corsHeaders({ "Content-Type": row.mime_type || "application/octet-stream" }));
+    res.end(row.image_data);
     return;
   }
 
@@ -391,13 +366,10 @@ async function handleRequest(req, res) {
     const linked = (await db.prepare("SELECT COUNT(*) AS count FROM plantations WHERE species_id = ?").get(id)).count;
     if (linked > 0) return json(res, 409, { error: "Species has linked plantations" });
 
-    const photos = await db.prepare("SELECT relative_path FROM species_photos WHERE species_id = ?").all(id);
     await db.tx(async (tx) => {
       await tx.prepare("DELETE FROM species_photos WHERE species_id = ?").run(id);
       await tx.prepare("DELETE FROM species WHERE id = ?").run(id);
     });
-
-    photos.forEach((p) => fs.rmSync(path.join(IMAGES_ROOT, p.relative_path), { force: true }));
     noContent(res);
     return;
   }
@@ -413,17 +385,12 @@ async function handleRequest(req, res) {
       return json(res, 400, { error: "Only image uploads are allowed" });
     }
 
-    const originalFilename = (url.searchParams.get("filename") || "photo").replace(/[^a-zA-Z0-9._-]/g, "_");
-    const ext = path.extname(originalFilename) || inferExt(String(mimeType));
-    const stored = `${Date.now()}-${randomUUID()}${ext}`;
-    const relativePath = path.posix.join("species", stored);
-    const absolutePath = path.join(IMAGES_ROOT, relativePath);
+    const filename = (url.searchParams.get("filename") || "photo").replace(/[^a-zA-Z0-9._-]/g, "_");
     const fileBuffer = await readBody(req);
-    await fsp.writeFile(absolutePath, fileBuffer);
 
     const count = (await db.prepare("SELECT COUNT(*) AS count FROM species_photos WHERE species_id = ?").get(speciesId)).count;
-    db.prepare("INSERT INTO species_photos (species_id, filename, original_filename, mime_type, relative_path, size_bytes, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(speciesId, stored, originalFilename, String(mimeType), relativePath, fileBuffer.length, new Date().toISOString(), count);
+    db.prepare("INSERT INTO species_photos (species_id, filename, mime_type, size_bytes, image_data, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(speciesId, filename, String(mimeType), fileBuffer.length, fileBuffer, new Date().toISOString(), count);
 
     const created = (await db.prepare("SELECT * FROM species_photos WHERE species_id = ? ORDER BY id DESC LIMIT 1").get(speciesId));
     json(res, 201, { photo: toPhotoRow(created) });
@@ -438,7 +405,6 @@ async function handleRequest(req, res) {
     if (!row) return json(res, 404, { error: "Photo not found" });
 
     await db.prepare("DELETE FROM species_photos WHERE id = ?").run(photoId);
-    fs.rmSync(path.join(IMAGES_ROOT, row.relative_path), { force: true });
     noContent(res);
     return;
   }
@@ -476,14 +442,13 @@ async function handleRequest(req, res) {
     const data = await loadBootstrapData();
     const speciesPhotos = [];
     for (const photo of data.speciesPhotos) {
-      const file = await fsp.readFile(path.join(IMAGES_ROOT, photo.relativePath));
+      const row = await db.prepare("SELECT image_data FROM species_photos WHERE id = ?").get(photo.id);
       speciesPhotos.push({
         id: photo.id,
         speciesId: photo.speciesId,
         filename: photo.filename,
         mimeType: photo.mimeType,
-        relativePath: photo.relativePath,
-        dataUrl: `data:${photo.mimeType};base64,${file.toString("base64")}`
+        dataUrl: `data:${photo.mimeType};base64,${Buffer.from(row.image_data).toString("base64")}`
       });
     }
 
@@ -536,20 +501,14 @@ async function handleRequest(req, res) {
       }
     });
 
-    fs.rmSync(SPECIES_IMAGES_DIR, { recursive: true, force: true });
-    fs.mkdirSync(SPECIES_IMAGES_DIR, { recursive: true });
-
-    const insPhoto = db.prepare("INSERT INTO species_photos (id, species_id, filename, original_filename, mime_type, relative_path, size_bytes, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    const insPhoto = db.prepare("INSERT INTO species_photos (id, species_id, filename, mime_type, size_bytes, image_data, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     for (let i = 0; i < (data.speciesPhotos || []).length; i += 1) {
       const photo = data.speciesPhotos[i];
       const match = String(photo.dataUrl || "").match(/^data:(.+);base64,(.*)$/);
       if (!match) continue;
       const mimeType = photo.mimeType || match[1];
       const raw = Buffer.from(match[2], "base64");
-      const stored = `${Date.now()}-${randomUUID()}${path.extname(photo.filename || "") || inferExt(mimeType)}`;
-      const relativePath = path.posix.join("species", stored);
-      await fsp.writeFile(path.join(IMAGES_ROOT, relativePath), raw);
-      await insPhoto.run(photo.id || i + 1, photo.speciesId, stored, photo.filename || stored, mimeType, relativePath, raw.length, now, i);
+      await insPhoto.run(photo.id || i + 1, photo.speciesId, photo.filename || `photo-${i + 1}`, mimeType, raw.length, raw, now, i);
     }
 
     noContent(res);
@@ -562,7 +521,6 @@ async function handleRequest(req, res) {
 async function start() {
   await initializeSchema();
   await seedIfEmpty(db);
-  fs.mkdirSync(SPECIES_IMAGES_DIR, { recursive: true });
 
 const server = http.createServer((req, res) => {
   handleRequest(req, res).catch((error) => {
