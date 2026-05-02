@@ -276,8 +276,13 @@ async function handleRequest(req, res) {
     const now = new Date().toISOString();
     const maxId = await db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM zones").get().id;
     let requestedId;
+    // Some clients still send id as NaN when creating zones; treat that as "no explicit id".
+    const rawZoneId = typeof payload.id === "string" ? payload.id.trim() : payload.id;
+    const shouldIgnoreZoneId =
+      rawZoneId === "NaN" ||
+      (typeof rawZoneId === "number" && Number.isNaN(rawZoneId));
     try {
-      requestedId = parseOptionalInteger(payload.id, "zones.id");
+      requestedId = shouldIgnoreZoneId ? null : parseOptionalInteger(rawZoneId, "zones.id");
     } catch (error) {
       console.error("[POST /api/zones] Invalid zone id in payload", {
         payloadId: payload.id,
