@@ -258,23 +258,19 @@ export default function SpeciesListPage() {
           </div>
         ) : (
           filteredSpecies.map((sp) => (
-            <article
-              key={sp.id}
-              className={
-                layout === "card"
-                  ? "species-row species-card species-row-clickable"
-                  : "species-row species-row-clickable"
-              }
-              onClick={() => navigate(`/species/${sp.id}`)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  navigate(`/species/${sp.id}`);
-                }
-              }}
-              tabIndex={0}
-            >
-              {layout === "list" ? (
+            layout === "list" ? (
+              <article
+                key={sp.id}
+                className="species-row species-row-clickable"
+                onClick={() => navigate(`/species/${sp.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(`/species/${sp.id}`);
+                  }
+                }}
+                tabIndex={0}
+              >
                 <div className="species-row-thumb-wrap" aria-hidden="true">
                   {sp.firstPhoto ? (
                     <img
@@ -289,23 +285,100 @@ export default function SpeciesListPage() {
                     </div>
                   )}
                 </div>
-              ) : null}
 
-              {/* Ligne 1 : nom + nom scientifique */}
-              <div className="species-row-line1">
-                <span className="species-row-name">
-                  <b>{sp.common_name}</b>
-                </span>
-                {layout === "list" && sp.scientific_name && (
-                  <span className="species-row-sci">
-                    {sp.scientific_name}
+                {/* Ligne 1 : nom + nom scientifique */}
+                <div className="species-row-line1">
+                  <span className="species-row-name">
+                    <b>{sp.common_name}</b>
                   </span>
-                )}
-                {layout === "list" && sp.family && <span> ({sp.family})</span>}
-              </div>
+                  {sp.scientific_name && (
+                    <span className="species-row-sci">
+                      {sp.scientific_name}
+                    </span>
+                  )}
+                  {sp.family && <span> ({sp.family})</span>}
+                </div>
 
-              {layout === "card" && (
-                <div className="species-row-line1 species-card-line2">
+                {/* Ligne 2 : périodes + zones + actions */}
+                <div className="species-row-line2">
+                  <div className="species-row-meta-left">
+                    <span>
+                      ✂️ Taille :{" "}
+                      {sp.pruning_period ? (
+                        sp.pruning_period
+                      ) : (
+                        <span className="muted">non renseignée</span>
+                      )}
+                    </span>
+                    <span>
+                      🌸 Floraison :{" "}
+                      {sp.flowering_period ? (
+                        sp.flowering_period
+                      ) : (
+                        <span className="muted">non renseignée</span>
+                      )}
+                    </span>
+                    <span>
+                      📍 {sp.instanceCount} plantation
+                      {sp.instanceCount > 1 ? "s" : ""}
+                      {sp.zonesInfo.length > 0 ? " · " : ""}
+                      {sp.zonesInfo.map((zone, index) => (
+                        <React.Fragment key={zone.id}>
+                          {index > 0 ? ", " : ""}
+                          <Link
+                            className="species-row-zone-link"
+                            to={`/zones/${zone.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {zone.name}
+                          </Link>
+                        </React.Fragment>
+                      ))}
+                    </span>
+                  </div>
+
+                  <div
+                    className="species-row-actions"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className="btn-secondary"
+                      onClick={() =>
+                        navigate(`/add-plant?speciesId=${sp.id}`)
+                      }
+                    >
+                      ➕ Ajouter une plantation
+                    </button>
+                    <button
+                      className="btn-icon-danger"
+                      title="Supprimer l'espèce"
+                      onClick={(e) => handleQuickDelete(e, sp)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ) : (
+              <article
+                key={sp.id}
+                className="species-row species-card species-row-clickable"
+                onClick={() => navigate(`/species/${sp.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(`/species/${sp.id}`);
+                  }
+                }}
+                tabIndex={0}
+              >
+                <div className="species-card-row1">
+                  <span className="species-row-name">
+                    <b>{sp.common_name}</b>
+                  </span>
+                </div>
+
+                <div className="species-card-row2">
                   {sp.scientific_name && (
                     <span className="species-row-sci">
                       {sp.scientific_name}
@@ -313,11 +386,8 @@ export default function SpeciesListPage() {
                   )}
                   {sp.family && <span>({sp.family})</span>}
                 </div>
-              )}
 
-              {/* Ligne 2/3 : périodes + zones + actions */}
-              <div className={layout === "card" ? "species-row-line2 species-card-line3" : "species-row-line2"}>
-                {layout === "card" ? (
+                <div className="species-card-row3">
                   <div className="species-row-thumb-wrap species-card-thumb-wrap" aria-hidden="true">
                     {sp.firstPhoto ? (
                       <img
@@ -332,45 +402,45 @@ export default function SpeciesListPage() {
                       </div>
                     )}
                   </div>
-                ) : null}
-                <div className="species-row-meta-left">
-                  <span>
-                    ✂️ Taille :{" "}
-                    {sp.pruning_period ? (
-                      sp.pruning_period
-                    ) : (
-                      <span className="muted">non renseignée</span>
-                    )}
-                  </span>
-                  <span>
-                    🌸 Floraison :{" "}
-                    {sp.flowering_period ? (
-                      sp.flowering_period
-                    ) : (
-                      <span className="muted">non renseignée</span>
-                    )}
-                  </span>
-                  <span>
-                    📍 {sp.instanceCount} plantation
-                    {sp.instanceCount > 1 ? "s" : ""}
-                    {sp.zonesInfo.length > 0 ? " · " : ""}
-                    {sp.zonesInfo.map((zone, index) => (
-                      <React.Fragment key={zone.id}>
-                        {index > 0 ? ", " : ""}
-                        <Link
-                          className="species-row-zone-link"
-                          to={`/zones/${zone.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {zone.name}
-                        </Link>
-                      </React.Fragment>
-                    ))}
-                  </span>
+                  <div className="species-row-meta-left species-card-meta">
+                    <span>
+                      ✂️ Taille :{" "}
+                      {sp.pruning_period ? (
+                        sp.pruning_period
+                      ) : (
+                        <span className="muted">non renseignée</span>
+                      )}
+                    </span>
+                    <span>
+                      🌸 Floraison :{" "}
+                      {sp.flowering_period ? (
+                        sp.flowering_period
+                      ) : (
+                        <span className="muted">non renseignée</span>
+                      )}
+                    </span>
+                    <span>
+                      📍 {sp.instanceCount} plantation
+                      {sp.instanceCount > 1 ? "s" : ""}
+                      {sp.zonesInfo.length > 0 ? " · " : ""}
+                      {sp.zonesInfo.map((zone, index) => (
+                        <React.Fragment key={zone.id}>
+                          {index > 0 ? ", " : ""}
+                          <Link
+                            className="species-row-zone-link"
+                            to={`/zones/${zone.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {zone.name}
+                          </Link>
+                        </React.Fragment>
+                      ))}
+                    </span>
+                  </div>
                 </div>
 
                 <div
-                  className="species-row-actions"
+                  className="species-row-actions species-card-actions"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
@@ -389,9 +459,8 @@ export default function SpeciesListPage() {
                     🗑️
                   </button>
                 </div>
-              </div>
-
-            </article>
+              </article>
+            )
           ))
         )}
       </div>

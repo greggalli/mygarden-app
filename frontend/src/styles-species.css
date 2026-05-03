@@ -797,45 +797,48 @@
   height: 100%;
   grid-template-columns: 1fr;
   grid-template-rows: auto auto auto auto;
-  grid-template-areas:
-    "line1"
-    "line1b"
-    "line2"
-    "actions";
+  gap: 0.45rem;
 }
 
-.species-card .species-row-line1 {
-  grid-area: line1;
+.species-card-row1,
+.species-card-row2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
 }
 
-.species-card-line2 {
-  grid-area: line1b;
-  margin-top: -0.1rem;
-}
-
-.species-card-line3 {
-  grid-area: line2;
-  align-items: flex-start;
+.species-card-row3 {
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
   gap: 0.65rem;
+  align-items: start;
+}
+
+.species-card-thumb-wrap {
+  align-self: stretch;
 }
 
 .species-card-thumb {
-  min-height: 88px;
-  max-height: 88px;
+  min-height: 96px;
+  max-height: 96px;
 }
 
-.species-card .species-row-meta-left {
+.species-card-meta {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.35rem;
+  justify-content: flex-start;
 }
 
-.species-card .species-row-actions {
-  grid-area: actions;
-  margin-top: 0.35rem;
+.species-card-meta > span {
   width: 100%;
+}
+
+.species-card-actions {
+  margin-top: 0.2rem;
+  width: 100%;
+  margin-left: 0;
 }
 
 @media (max-width: 1100px) {
@@ -863,7 +866,7 @@
     grid-template-columns: 1fr;
   }
 
-  .species-card-line3 {
+  .species-card-row3 {
     grid-template-columns: 72px minmax(0, 1fr);
   }
 }
