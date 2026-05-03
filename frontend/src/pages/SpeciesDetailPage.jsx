@@ -205,6 +205,19 @@ const SpeciesDetailPage = () => {
         </section>
       )}
 
+      <section className="species-detail-section">
+        <div className="species-detail-card">
+          <div className="section-header">
+            <h3>Botanical information</h3>
+          </div>
+          <dl className="species-detail-attributes">
+            <div className="species-detail-attribute-row"><dt>Family</dt><dd>{species.family || <span className="muted">—</span>}</dd></div>
+            <div className="species-detail-attribute-row"><dt>Gender</dt><dd>{species.gender || <span className="muted">—</span>}</dd></div>
+            <div className="species-detail-attribute-row"><dt>Specie</dt><dd>{species.specie || <span className="muted">—</span>}</dd></div>
+          </dl>
+        </div>
+      </section>
+
       {/* 4. Liens utiles */}
       <section className="species-detail-section">
         <div className="species-detail-card">
