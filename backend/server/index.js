@@ -49,6 +49,8 @@ function toSpeciesRow(row) {
     common_name: row.common_name,
     scientific_name: row.scientific_name,
     family: row.family,
+    gender: row.gender,
+    specie: row.specie,
     pruning_period: row.pruning_period,
     flowering_period: row.flowering_period,
     care_tips: row.care_tips,
@@ -280,8 +282,8 @@ async function handleRequest(req, res) {
   if (method === "POST" && url.pathname === "/api/species") {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const now = new Date().toISOString();
-    const created = await db.prepare("INSERT INTO species (common_name, scientific_name, family, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *")
-      .get((payload.common_name || "").trim(), payload.scientific_name || null, payload.family || null, payload.pruning_period || null, payload.flowering_period || null, payload.care_tips || null, payload.notes || null, JSON.stringify(payload.external_links || []), now, now);
+    const created = await db.prepare("INSERT INTO species (common_name, scientific_name, family, gender, specie, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *")
+      .get((payload.common_name || "").trim(), payload.scientific_name || null, payload.family || null, payload.gender || null, payload.specie || null, payload.pruning_period || null, payload.flowering_period || null, payload.care_tips || null, payload.notes || null, JSON.stringify(payload.external_links || []), now, now);
 
     json(res, 201, toSpeciesRow(created));
     return;
@@ -354,8 +356,8 @@ async function handleRequest(req, res) {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const merged = { ...toSpeciesRow(existing), ...payload };
 
-    db.prepare("UPDATE species SET common_name=?, scientific_name=?, family=?, pruning_period=?, flowering_period=?, care_tips=?, notes=?, external_links_json=?, updated_at=? WHERE id=?")
-      .run((merged.common_name || "").trim(), merged.scientific_name || null, merged.family || null, merged.pruning_period || null, merged.flowering_period || null, merged.care_tips || null, merged.notes || null, JSON.stringify(merged.external_links || []), new Date().toISOString(), id);
+    db.prepare("UPDATE species SET common_name=?, scientific_name=?, family=?, gender=?, specie=?, pruning_period=?, flowering_period=?, care_tips=?, notes=?, external_links_json=?, updated_at=? WHERE id=?")
+      .run((merged.common_name || "").trim(), merged.scientific_name || null, merged.family || null, merged.gender || null, merged.specie || null, merged.pruning_period || null, merged.flowering_period || null, merged.care_tips || null, merged.notes || null, JSON.stringify(merged.external_links || []), new Date().toISOString(), id);
 
     json(res, 200, toSpeciesRow(await db.prepare("SELECT * FROM species WHERE id = ?").get(id)));
     return;
@@ -475,9 +477,9 @@ async function handleRequest(req, res) {
     await db.tx(async (tx) => {
       await tx.exec("DELETE FROM species_photos; DELETE FROM plantations; DELETE FROM zone_geometries; DELETE FROM zones; DELETE FROM species; DELETE FROM tasks;");
 
-      const insSpecies = tx.prepare("INSERT INTO species (id, common_name, scientific_name, family, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const insSpecies = tx.prepare("INSERT INTO species (id, common_name, scientific_name, family, gender, specie, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
       for (const sp of (data.species || [])) {
-        await insSpecies.run(sp.id, sp.common_name || "", sp.scientific_name || null, sp.family || null, sp.pruning_period || null, sp.flowering_period || null, sp.care_tips || null, sp.notes || null, JSON.stringify(sp.external_links || []), sp.created_at || now, sp.updated_at || now);
+        await insSpecies.run(sp.id, sp.common_name || "", sp.scientific_name || null, sp.family || null, sp.gender || null, sp.specie || null, sp.pruning_period || null, sp.flowering_period || null, sp.care_tips || null, sp.notes || null, JSON.stringify(sp.external_links || []), sp.created_at || now, sp.updated_at || now);
       }
 
       const insZone = tx.prepare("INSERT INTO zones (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)");

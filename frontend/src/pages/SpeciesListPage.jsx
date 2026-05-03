@@ -12,6 +12,7 @@ export default function SpeciesListPage() {
   const [search, setSearch] = useState("");
   const [zoneFilter, setZoneFilter] = useState("all");
   const [familyFilter, setFamilyFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("common-name");
 
   // Index zones par id
   const zonesById = useMemo(() => {
@@ -107,15 +108,30 @@ export default function SpeciesListPage() {
       });
     }
 
-    // Tri par nom commun
-    list.sort((a, b) =>
-      a.common_name.localeCompare(b.common_name, "fr", {
-        sensitivity: "base"
-      })
-    );
+    if (sortBy === "creation-date") {
+      list.sort((a, b) => {
+        const da = a.created_at || "";
+        const db = b.created_at || "";
+        if (da !== db) return db.localeCompare(da);
+        return (a.common_name || "").localeCompare(b.common_name || "", "fr", { sensitivity: "base" });
+      });
+    } else if (sortBy === "common-name") {
+      list.sort((a, b) => (a.common_name || "").localeCompare(b.common_name || "", "fr", { sensitivity: "base" }));
+    } else if (sortBy === "family") {
+      list.sort((a, b) => {
+        const cmp = (a.family || "").localeCompare(b.family || "", "fr", { sensitivity: "base" });
+        if (cmp !== 0) return cmp;
+        return (a.common_name || "").localeCompare(b.common_name || "", "fr", { sensitivity: "base" });
+      });
+    } else if (sortBy === "plantations") {
+      list.sort((a, b) => {
+        if (b.instanceCount !== a.instanceCount) return b.instanceCount - a.instanceCount;
+        return (a.common_name || "").localeCompare(b.common_name || "", "fr", { sensitivity: "base" });
+      });
+    }
 
     return list;
-  }, [enrichedSpecies, zoneFilter, familyFilter, search]);
+  }, [enrichedSpecies, zoneFilter, familyFilter, search, sortBy]);
 
   const totalSpecies = species.length;
   const totalInstances = instances.length;
@@ -198,6 +214,17 @@ export default function SpeciesListPage() {
                 {fam}
               </option>
             ))}
+          </select>
+
+          <select
+            className="species-filter-select"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="creation-date">Trier par date de création</option>
+            <option value="common-name">Trier par nom commun</option>
+            <option value="family">Trier par famille</option>
+            <option value="plantations">Trier par nombre de plantations</option>
           </select>
         </div>
       </div>
