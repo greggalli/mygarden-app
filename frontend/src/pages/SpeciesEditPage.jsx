@@ -8,6 +8,8 @@ const buildInitialForm = (species, speciesPhotos) => ({
   common_name: species?.common_name || "",
   scientific_name: species?.scientific_name || "",
   family: species?.family || "",
+  gender: species?.gender || "",
+  specie: species?.specie || "",
   pruning_period: species?.pruning_period || "",
   flowering_period: species?.flowering_period || "",
   care_tips: species?.care_tips || "",
@@ -185,6 +187,8 @@ export default function SpeciesEditPage() {
       common_name: form.common_name.trim(),
       scientific_name: form.scientific_name.trim(),
       family: form.family.trim(),
+      gender: form.gender.trim(),
+      specie: form.specie.trim(),
       pruning_period: form.pruning_period.trim(),
       flowering_period: form.flowering_period.trim(),
       care_tips: form.care_tips.trim(),
@@ -307,6 +311,28 @@ export default function SpeciesEditPage() {
                 type="text"
                 name="family"
                 value={form.family}
+                onChange={handleChange}
+                maxLength={80}
+              />
+            </label>
+
+            <label>
+              Genre
+              <input
+                type="text"
+                name="gender"
+                value={form.gender}
+                onChange={handleChange}
+                maxLength={80}
+              />
+            </label>
+
+            <label>
+              Espèce
+              <input
+                type="text"
+                name="specie"
+                value={form.specie}
                 onChange={handleChange}
                 maxLength={80}
               />
