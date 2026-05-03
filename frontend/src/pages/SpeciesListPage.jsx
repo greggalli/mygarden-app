@@ -302,7 +302,7 @@ export default function SpeciesListPage() {
                 {/* Ligne 2 : périodes + zones + actions */}
                 <div className="species-row-line2">
                   <div className="species-row-meta-left">
-                    <span>
+                    <span className="species-card-meta-line">
                       ✂️ Taille :{" "}
                       {sp.pruning_period ? (
                         sp.pruning_period
@@ -310,7 +310,7 @@ export default function SpeciesListPage() {
                         <span className="muted">non renseignée</span>
                       )}
                     </span>
-                    <span>
+                    <span className="species-card-meta-line">
                       🌸 Floraison :{" "}
                       {sp.flowering_period ? (
                         sp.flowering_period
@@ -318,7 +318,7 @@ export default function SpeciesListPage() {
                         <span className="muted">non renseignée</span>
                       )}
                     </span>
-                    <span>
+                    <span className="species-card-meta-line">
                       📍 {sp.instanceCount} plantation
                       {sp.instanceCount > 1 ? "s" : ""}
                       {sp.zonesInfo.length > 0 ? " · " : ""}
@@ -372,13 +372,10 @@ export default function SpeciesListPage() {
                 }}
                 tabIndex={0}
               >
-                <div className="species-card-row1">
+                <div className="species-row-line1 species-card-line1">
                   <span className="species-row-name">
                     <b>{sp.common_name}</b>
                   </span>
-                </div>
-
-                <div className="species-card-row2">
                   {sp.scientific_name && (
                     <span className="species-row-sci">
                       {sp.scientific_name}
@@ -387,7 +384,7 @@ export default function SpeciesListPage() {
                   {sp.family && <span>({sp.family})</span>}
                 </div>
 
-                <div className="species-card-row3">
+                <div className="species-card-row2">
                   <div className="species-row-thumb-wrap species-card-thumb-wrap" aria-hidden="true">
                     {sp.firstPhoto ? (
                       <img
@@ -403,7 +400,7 @@ export default function SpeciesListPage() {
                     )}
                   </div>
                   <div className="species-row-meta-left species-card-meta">
-                    <span>
+                    <span className="species-card-meta-line">
                       ✂️ Taille :{" "}
                       {sp.pruning_period ? (
                         sp.pruning_period
@@ -411,7 +408,7 @@ export default function SpeciesListPage() {
                         <span className="muted">non renseignée</span>
                       )}
                     </span>
-                    <span>
+                    <span className="species-card-meta-line">
                       🌸 Floraison :{" "}
                       {sp.flowering_period ? (
                         sp.flowering_period
@@ -419,7 +416,7 @@ export default function SpeciesListPage() {
                         <span className="muted">non renseignée</span>
                       )}
                     </span>
-                    <span>
+                    <span className="species-card-meta-line">
                       📍 {sp.instanceCount} plantation
                       {sp.instanceCount > 1 ? "s" : ""}
                       {sp.zonesInfo.length > 0 ? " · " : ""}
