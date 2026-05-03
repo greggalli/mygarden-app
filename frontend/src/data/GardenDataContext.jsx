@@ -48,7 +48,8 @@ function withResolvedSpeciesPhotos(dataset) {
     ...dataset,
     species,
     speciesPhotos,
-    instances: dataset.plantations || dataset.instances || []
+    instances: dataset.plantations || dataset.instances || [],
+    gardenMap: dataset.gardenMap || null
   };
 }
 

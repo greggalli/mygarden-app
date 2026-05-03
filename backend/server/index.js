@@ -3,6 +3,7 @@ const http = require("http");
 const { db, initializeSchema } = require("./db");
 const { seedIfEmpty } = require("./seed");
 const { config } = require("./config");
+const { isPointGeometry, isPolygonGeometry, pointInPolygon, polygonInsidePolygon } = require("./geometry");
 
 const { port: PORT, corsOrigin } = config;
 
@@ -91,13 +92,14 @@ function toPhotoRow(row) {
 }
 
 function parseCoordinatesFromGeometry(geometry) {
-  if (Array.isArray(geometry?.shape)) {
-    return geometry.shape;
-  }
-  if (Array.isArray(geometry?.coordinates)) {
-    return geometry.coordinates;
-  }
+  if (isPolygonGeometry(geometry)) return geometry.coordinates[0];
+  if (Array.isArray(geometry?.shape)) return geometry.shape;
+  if (Array.isArray(geometry?.coordinates)) return geometry.coordinates;
   return [];
+}
+
+async function getGardenMap() {
+  return db.prepare("SELECT * FROM garden_maps ORDER BY id LIMIT 1").get();
 }
 
 function serializeZone(zoneRow, geometryRow, plantingCount = 0) {
@@ -112,6 +114,7 @@ function serializeZone(zoneRow, geometryRow, plantingCount = 0) {
     color: geometry.color || null,
     zone_type: geometry.zone_type || null,
     bbox: geometry.bbox || null,
+    geometry,
     shape: coordinates,
     created_at: zoneRow.created_at,
     updated_at: zoneRow.updated_at
@@ -165,13 +168,16 @@ async function loadBootstrapData() {
       color: g.color || null,
       zone_type: g.zone_type || null,
       bbox: g.bbox || null,
+      geometry: g,
       shape: coordinates,
       created_at: zone.created_at,
       updated_at: zone.updated_at
     };
   });
 
+  const gardenMap = await getGardenMap();
   return {
+    gardenMap: gardenMap ? { ...gardenMap, geometry: parseJson(gardenMap.geometry, {}) } : null,
     species: (await db.prepare("SELECT * FROM species ORDER BY LOWER(common_name)").all()).map(toSpeciesRow),
     zones,
     zoneGeometries,
@@ -206,6 +212,27 @@ async function handleRequest(req, res) {
 
   if (method === "GET" && url.pathname === "/api/bootstrap") {
     json(res, 200, await loadBootstrapData());
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/api/garden-map") {
+    const row = await getGardenMap();
+    if (!row) return json(res, 404, { error: "Garden map not found" });
+    json(res, 200, row);
+    return;
+  }
+
+  if (method === "PUT" && url.pathname === "/api/garden-map") {
+    const existing = await getGardenMap();
+    if (!existing) return json(res, 404, { error: "Garden map not found" });
+    const payload = parseJson((await readBody(req)).toString("utf8"), {});
+    const geometry = payload.geometry ?? existing.geometry;
+    if (!isPolygonGeometry(geometry)) return json(res, 400, { error: "Garden geometry must be a GeoJSON Polygon" });
+    const now = new Date().toISOString();
+    const updated = await db.prepare("UPDATE garden_maps SET name=?, width=?, height=?, geometry=?, updated_at=? WHERE id=? RETURNING *")
+      .get((payload.name ?? existing.name), Number(payload.width ?? existing.width), Number(payload.height ?? existing.height), JSON.stringify(geometry), now, existing.id);
+    updated.geometry = parseJson(updated.geometry, {});
+    json(res, 200, updated);
     return;
   }
 
@@ -244,15 +271,14 @@ async function handleRequest(req, res) {
     if (!name) {
       return json(res, 400, { error: "Zone name is required" });
     }
-    let coordinates;
-    try {
-      coordinates = parseZoneCoordinates(payload.coordinates);
-    } catch (error) {
-      return json(res, 400, { error: error.message });
-    }
+    const geometry = payload.geometry || parseJson(payload.geometry_json, null);
+    if (!isPolygonGeometry(geometry)) return json(res, 400, { error: "Zone geometry must be a GeoJSON Polygon" });
+    const gardenMap = await getGardenMap();
+    const gardenGeometry = parseJson(gardenMap?.geometry, null);
+    if (gardenGeometry && !polygonInsidePolygon(geometry, gardenGeometry)) return json(res, 400, { error: "Zone must be inside garden boundary" });
     const now = new Date().toISOString();
 
-    const existingGeometry = parseJson(payload.geometry_json, {});
+    const existingGeometry = {};
     console.debug("[POST /api/zones] Creating zone", {
       name,
       coordinatesCount: coordinates.length,
@@ -262,8 +288,7 @@ async function handleRequest(req, res) {
     });
     const nextGeometry = {
       ...existingGeometry,
-      shape: coordinates,
-      coordinates
+      ...geometry
     };
 
     const created = await db.tx(async (tx) => {
@@ -314,8 +339,7 @@ async function handleRequest(req, res) {
     const existingGeometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
     const mergedGeometry = {
       ...parseJson(existingGeometry?.geometry_json, {}),
-      shape: coordinates,
-      coordinates
+      ...geometry
     };
 
     await db.tx(async (tx) => {
@@ -413,9 +437,19 @@ async function handleRequest(req, res) {
 
   if (method === "POST" && url.pathname === "/api/plantations") {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
+    const position = payload.position || null;
+    if (position && !isPointGeometry(position)) return json(res, 400, { error: "Plantation position must be a GeoJSON Point" });
+    const gardenMap = await getGardenMap();
+    const gardenGeometry = parseJson(gardenMap?.geometry, null);
+    if (position && gardenGeometry && !pointInPolygon(position, gardenGeometry)) return json(res, 400, { error: "Plantation point must be inside garden boundary" });
+    if (position && payload.zone_id) {
+      const zgeom = await db.prepare("SELECT geometry_json FROM zone_geometries WHERE zone_id = ?").get(payload.zone_id);
+      const zoneGeometry = parseJson(zgeom?.geometry_json, null);
+      if (zoneGeometry && !pointInPolygon(position, zoneGeometry)) return json(res, 400, { error: "Plantation point must be inside its zone" });
+    }
     const now = new Date().toISOString();
     const created = await db.prepare("INSERT INTO plantations (species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *")
-      .get(payload.species_id, payload.zone_id || null, payload.planted_at || payload.planting_date || null, payload.quantity || 1, payload.notes || null, payload.nickname || null, JSON.stringify(payload.position || null), now, now);
+      .get(payload.species_id, payload.zone_id || null, payload.planted_at || payload.planting_date || null, payload.quantity || 1, payload.notes || null, payload.nickname || null, JSON.stringify(position), now, now);
     json(res, 201, toPlantationRow(created));
     return;
   }
@@ -427,6 +461,10 @@ async function handleRequest(req, res) {
     if (!existing) return json(res, 404, { error: "Plantation not found" });
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const merged = { ...toPlantationRow(existing), ...payload };
+    if (merged.position && !isPointGeometry(merged.position)) return json(res, 400, { error: "Plantation position must be a GeoJSON Point" });
+    const gardenMap = await getGardenMap();
+    const gardenGeometry = parseJson(gardenMap?.geometry, null);
+    if (merged.position && gardenGeometry && !pointInPolygon(merged.position, gardenGeometry)) return json(res, 400, { error: "Plantation point must be inside garden boundary" });
 
     db.prepare("UPDATE plantations SET species_id=?, zone_id=?, planted_at=?, quantity=?, notes=?, nickname=?, position_json=?, updated_at=? WHERE id=?")
       .run(merged.species_id, merged.zone_id || null, merged.planted_at || merged.planting_date || null, merged.quantity || 1, merged.notes || null, merged.nickname || null, JSON.stringify(merged.position || null), new Date().toISOString(), id);

@@ -1,12 +1,13 @@
 import React from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import GardenMapCanvas from "../components/GardenMapCanvas";
 
 export default function ZoneDetailPage() {
   const { zoneId } = useParams();
   const navigate = useNavigate();
   const { data } = useGardenData();
-  const { zones, instances, species } = data;
+  const { zones, instances, species, gardenMap } = data;
 
   const zone = zones.find((z) => z.id === Number(zoneId));
   const plantsInZone = instances.filter((inst) => inst.zone_id === Number(zoneId));
@@ -41,10 +42,8 @@ export default function ZoneDetailPage() {
             <div className="zone-infos-value">{plantsInZone.length}</div>
           </div>
 
-          <div className="zone-infos-row">
-            <div className="zone-infos-label">Coordonnées</div>
-            <div className="zone-infos-coords">{JSON.stringify(zone.coordinates || zone.shape || [], null, 2)}</div>
-          </div>
+          <div className="zone-infos-row"><div className="zone-infos-label">Géométrie</div><div className="zone-infos-value">Polygon</div></div>
+          <GardenMapCanvas gardenMap={gardenMap} zones={[zone]} plantations={plantsInZone} onPlantationClick={(p)=>navigate(`/plants/${p.id}`)} />
         </div>
 
         <Link to="/zones" className="back-link">← Retour aux zones</Link>

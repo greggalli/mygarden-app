@@ -17,6 +17,7 @@ async function seedIfEmpty(db) {
   const tasks = loadJson("frontend/src/data/tasks.json");
 
   const insertSpecies = db.prepare(`INSERT INTO species (id, common_name, scientific_name, family, pruning_period, flowering_period, care_tips, notes, external_links_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const insertGardenMap = db.prepare(`INSERT INTO garden_maps (name, width, height, geometry, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`);
   const insertZone = db.prepare(`INSERT INTO zones (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`);
   const insertZoneGeometry = db.prepare(`INSERT INTO zone_geometries (zone_id, geometry_json, created_at, updated_at) VALUES (?, ?, ?, ?)`);
   const insertPlantation = db.prepare(`INSERT INTO plantations (id, species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -40,11 +41,13 @@ async function seedIfEmpty(db) {
       );
     }
 
+    await insertGardenMap.run("Jardin principal", 100, 100, JSON.stringify({ type: "Polygon", coordinates: [[[0,0],[100,0],[100,100],[0,100],[0,0]]] }), now, now);
+
     for (const zone of zones) {
       await insertZone.run(zone.id, zone.name || "", zone.description || null, now, now);
       await insertZoneGeometry.run(
         zone.id,
-        JSON.stringify({ color: zone.color || null, zone_type: zone.zone_type || null, bbox: zone.bbox || null, shape: zone.shape || [] }),
+        JSON.stringify(zone.geometry || { type: "Polygon", coordinates: [((zone.shape || []).map((pt) => [pt.x_pct || 0, 100 - (pt.y_pct || 0)]).concat((zone.shape || [])[0] ? [[zone.shape[0].x_pct || 0, 100 - (zone.shape[0].y_pct || 0)]] : []))] }),
         now,
         now
       );
@@ -59,7 +62,7 @@ async function seedIfEmpty(db) {
         inst.quantity || 1,
         inst.notes || null,
         inst.nickname || null,
-        JSON.stringify(inst.position || null),
+        JSON.stringify(inst.position?.type ? inst.position : (inst.position ? { type: "Point", coordinates: [inst.position.x_pct || 0, 100 - (inst.position.y_pct || 0)] } : null)),
         now,
         now
       );

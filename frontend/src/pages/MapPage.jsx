@@ -1,17 +1,25 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import GardenOverviewMap from "../components/GardenOverviewMap";
+import { useNavigate } from "react-router-dom";
+import GardenMapCanvas from "../components/GardenMapCanvas";
 import { useGardenData } from "../data/GardenDataContext";
 
 export default function MapPage() {
   const { data } = useGardenData();
-  const { zones } = data;
+  const navigate = useNavigate();
+  const { zones, instances, gardenMap } = data;
 
   return (
     <div className="zones-page-2col">
       <div className="zones-left-col">
         <h2 className="section-title">Plan général du jardin</h2>
-        <GardenOverviewMap />
+        <GardenMapCanvas
+          gardenMap={gardenMap}
+          zones={zones}
+          plantations={instances}
+          onZoneClick={(zone) => navigate(`/zones/${zone.id}`)}
+          onPlantationClick={(p) => navigate(`/plants/${p.id}`)}
+        />
       </div>
 
       <div className="zones-right-col">
