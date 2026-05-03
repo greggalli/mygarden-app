@@ -208,12 +208,12 @@ const SpeciesDetailPage = () => {
       <section className="species-detail-section">
         <div className="species-detail-card">
           <div className="section-header">
-            <h3>Botanical information</h3>
+            <h3>Information botanique</h3>
           </div>
           <dl className="species-detail-attributes">
-            <div className="species-detail-attribute-row"><dt>Family</dt><dd>{species.family || <span className="muted">—</span>}</dd></div>
-            <div className="species-detail-attribute-row"><dt>Gender</dt><dd>{species.gender || <span className="muted">—</span>}</dd></div>
-            <div className="species-detail-attribute-row"><dt>Specie</dt><dd>{species.specie || <span className="muted">—</span>}</dd></div>
+            <div className="species-detail-attribute-row"><dt>Famille</dt><dd>{species.family || <span className="muted">—</span>}</dd></div>
+            <div className="species-detail-attribute-row"><dt>Genre</dt><dd>{species.gender || <span className="muted">—</span>}</dd></div>
+            <div className="species-detail-attribute-row"><dt>Espèce</dt><dd>{species.specie || <span className="muted">—</span>}</dd></div>
           </dl>
         </div>
       </section>
