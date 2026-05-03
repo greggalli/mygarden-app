@@ -13,6 +13,7 @@ export default function SpeciesListPage() {
   const [zoneFilter, setZoneFilter] = useState("all");
   const [familyFilter, setFamilyFilter] = useState("all");
   const [sortBy, setSortBy] = useState("common-name");
+  const [layout, setLayout] = useState("list");
 
   // Index zones par id
   const zonesById = useMemo(() => {
@@ -226,11 +227,31 @@ export default function SpeciesListPage() {
             <option value="family">Trier par famille</option>
             <option value="plantations">Trier par nombre de plantations</option>
           </select>
+
+          <button
+            type="button"
+            className="species-layout-toggle btn-secondary"
+            title={
+              layout === "list"
+                ? "Basculer en affichage cartes"
+                : "Basculer en affichage liste"
+            }
+            aria-label={
+              layout === "list"
+                ? "Basculer en affichage cartes"
+                : "Basculer en affichage liste"
+            }
+            onClick={() =>
+              setLayout((prev) => (prev === "list" ? "card" : "list"))
+            }
+          >
+            {layout === "list" ? "🔲" : "☰"}
+          </button>
         </div>
       </div>
 
-      {/* Liste compacte des espèces */}
-      <div className="species-list">
+      {/* Liste compacte des espèces + vue cartes */}
+      <div className={layout === "card" ? "species-list species-list-cards" : "species-list"}>
         {filteredSpecies.length === 0 ? (
           <div className="species-empty">
             Aucune espèce ne correspond à ces filtres.
@@ -239,7 +260,11 @@ export default function SpeciesListPage() {
           filteredSpecies.map((sp) => (
             <article
               key={sp.id}
-              className="species-row species-row-clickable"
+              className={
+                layout === "card"
+                  ? "species-row species-card species-row-clickable"
+                  : "species-row species-row-clickable"
+              }
               onClick={() => navigate(`/species/${sp.id}`)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -249,41 +274,65 @@ export default function SpeciesListPage() {
               }}
               tabIndex={0}
             >
-              <div className="species-row-thumb-wrap" aria-hidden="true">
-                {sp.firstPhoto ? (
-                  <img
-                    className="species-row-thumb"
-                    src={sp.firstPhoto}
-                    loading="lazy"
-                    alt=""
-                  />
-                ) : (
-                  <div className="species-row-thumb species-row-thumb-fallback">
-                    🌿
-                  </div>
-                )}
-              </div>
+              {layout === "list" ? (
+                <div className="species-row-thumb-wrap" aria-hidden="true">
+                  {sp.firstPhoto ? (
+                    <img
+                      className="species-row-thumb"
+                      src={sp.firstPhoto}
+                      loading="lazy"
+                      alt=""
+                    />
+                  ) : (
+                    <div className="species-row-thumb species-row-thumb-fallback">
+                      🌿
+                    </div>
+                  )}
+                </div>
+              ) : null}
 
               {/* Ligne 1 : nom + nom scientifique */}
               <div className="species-row-line1">
                 <span className="species-row-name">
                   <b>{sp.common_name}</b>
                 </span>
-                {sp.scientific_name && (
+                {layout === "list" && sp.scientific_name && (
                   <span className="species-row-sci">
                     {sp.scientific_name}
                   </span>
                 )}
-                {sp.family && (
-                  <span>
-                    {" "}
-                    ({sp.family})
-                  </span>
-                )}
+                {layout === "list" && sp.family && <span> ({sp.family})</span>}
               </div>
-              
-              {/* Ligne 2 : périodes + zones + actions */}
-              <div className="species-row-line2">
+
+              {layout === "card" && (
+                <div className="species-row-line1 species-card-line2">
+                  {sp.scientific_name && (
+                    <span className="species-row-sci">
+                      {sp.scientific_name}
+                    </span>
+                  )}
+                  {sp.family && <span>({sp.family})</span>}
+                </div>
+              )}
+
+              {/* Ligne 2/3 : périodes + zones + actions */}
+              <div className={layout === "card" ? "species-row-line2 species-card-line3" : "species-row-line2"}>
+                {layout === "card" ? (
+                  <div className="species-row-thumb-wrap species-card-thumb-wrap" aria-hidden="true">
+                    {sp.firstPhoto ? (
+                      <img
+                        className="species-row-thumb species-card-thumb"
+                        src={sp.firstPhoto}
+                        loading="lazy"
+                        alt=""
+                      />
+                    ) : (
+                      <div className="species-row-thumb species-row-thumb-fallback species-card-thumb">
+                        🌿
+                      </div>
+                    )}
+                  </div>
+                ) : null}
                 <div className="species-row-meta-left">
                   <span>
                     ✂️ Taille :{" "}
