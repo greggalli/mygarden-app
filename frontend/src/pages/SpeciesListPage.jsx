@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import HoverPreviewImage from "../components/HoverPreviewImage";
 
 export default function SpeciesListPage() {
   const { data, deleteSpecies } = useGardenData();
@@ -273,11 +274,11 @@ export default function SpeciesListPage() {
               >
                 <div className="species-row-thumb-wrap" aria-hidden="true">
                   {sp.firstPhoto ? (
-                    <img
-                      className="species-row-thumb"
+                    <HoverPreviewImage
                       src={sp.firstPhoto}
-                      loading="lazy"
-                      alt=""
+                      alt={sp.common_name || "Photo espèce"}
+                      className="species-row-thumb species-thumb-hover-wrap"
+                      previewClassName="thumb-hover-preview"
                     />
                   ) : (
                     <div className="species-row-thumb species-row-thumb-fallback">
@@ -387,11 +388,11 @@ export default function SpeciesListPage() {
                 <div className="species-card-row2">
                   <div className="species-row-thumb-wrap species-card-thumb-wrap" aria-hidden="true">
                     {sp.firstPhoto ? (
-                      <img
-                        className="species-row-thumb species-card-thumb"
+                      <HoverPreviewImage
                         src={sp.firstPhoto}
-                        loading="lazy"
-                        alt=""
+                        alt={sp.common_name || "Photo espèce"}
+                        className="species-row-thumb species-card-thumb species-thumb-hover-wrap"
+                        previewClassName="thumb-hover-preview"
                       />
                     ) : (
                       <div className="species-row-thumb species-row-thumb-fallback species-card-thumb">
