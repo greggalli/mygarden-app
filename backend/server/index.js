@@ -299,8 +299,8 @@ async function handleRequest(req, res) {
       return inserted;
     });
 
-    const geometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(created.id);
-    json(res, 201, serializeZone(created, geometry, 0));
+    const createdGeometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(created.id);
+    json(res, 201, serializeZone(created, createdGeometry, 0));
     return;
   }
 
