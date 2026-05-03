@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import HoverPreviewImage from "../components/HoverPreviewImage";
 
 function formatPlantingDate(dateString) {
   if (!dateString) return "";
@@ -217,11 +218,11 @@ export default function PlantsListPage() {
             >
               <div className="instance-row-thumb-wrap" aria-hidden="true">
                 {row._species?.photos?.[0] ? (
-                  <img
-                    className="instance-row-thumb"
+                  <HoverPreviewImage
                     src={row._species.photos[0]}
-                    loading="lazy"
-                    alt=""
+                    alt={row._species?.common_name || "Photo espèce"}
+                    className="instance-row-thumb species-thumb-hover-wrap"
+                    previewClassName="thumb-hover-preview"
                   />
                 ) : (
                   <div className="instance-row-thumb instance-row-thumb-fallback">

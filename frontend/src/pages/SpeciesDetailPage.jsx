@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import ImageLightbox from "../components/ImageLightbox";
 
 const SpeciesDetailPage = () => {
   const { speciesId } = useParams();
@@ -158,6 +159,7 @@ const SpeciesDetailPage = () => {
                     type="button"
                     className="photo-nav-btn"
                     onClick={goPrevPhoto}
+                    aria-label="Photo précédente"
                   >
                     ‹
                   </button>
@@ -168,6 +170,7 @@ const SpeciesDetailPage = () => {
                     type="button"
                     className="photo-nav-btn"
                     onClick={goNextPhoto}
+                    aria-label="Photo suivante"
                   >
                     ›
                   </button>
@@ -377,26 +380,15 @@ const SpeciesDetailPage = () => {
       </section>
 
       {/* Pop-up / lightbox pour photo en taille réelle */}
-      {isLightboxOpen && hasPhotos && (
-        <div className="photo-lightbox-backdrop" onClick={closeLightbox}>
-          <div
-            className="photo-lightbox"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="photo-lightbox-close"
-              onClick={closeLightbox}
-            >
-              ✕
-            </button>
-            <img
-              src={photos[safePhotoIndex]}
-              alt={species.common_name || "Photo espèce agrandie"}
-            />
-          </div>
-        </div>
-      )}
+      <ImageLightbox
+        isOpen={isLightboxOpen && hasPhotos}
+        images={photos}
+        activeIndex={safePhotoIndex}
+        onClose={closeLightbox}
+        onPrevious={goPrevPhoto}
+        onNext={goNextPhoto}
+        altBase={species.common_name || "Photo espèce"}
+      />
     </div>
   );
 };

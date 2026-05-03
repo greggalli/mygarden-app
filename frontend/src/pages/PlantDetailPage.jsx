@@ -1,7 +1,8 @@
 // src/pages/PlantDetailPage.jsx
-import React from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import ImageLightbox from "../components/ImageLightbox";
 
 const PlantDetailPage = () => {
   const { plantId } = useParams();
@@ -9,6 +10,8 @@ const PlantDetailPage = () => {
   const { data } = useGardenData();
 
   const numericPlantId = Number(plantId);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const instances = data?.instances || [];
   const speciesList = data?.species || [];
@@ -49,6 +52,9 @@ const PlantDetailPage = () => {
 
   // Données “botaniques” héritées de l’espèce
   const speciesPhotos = Array.isArray(species?.photos) ? species.photos : [];
+  const hasMultiplePhotos = speciesPhotos.length > 1;
+  const safePhotoIndex =
+    speciesPhotos.length > 0 ? Math.min(photoIndex, speciesPhotos.length - 1) : 0;
   const externalLinks = Array.isArray(species?.external_links)
     ? species.external_links
     : [];
@@ -56,8 +62,17 @@ const PlantDetailPage = () => {
   const handleEditPlant = () => navigate(`/plants/${numericPlantId}/edit`);
   const handleOpenSpecies = () => species && navigate(`/species/${species.id}`);
   const handleOpenOtherInstance = (id) => navigate(`/plants/${id}`);
+  const goPrevPhoto = () => {
+    if (!hasMultiplePhotos) return;
+    setPhotoIndex((prev) => (prev === 0 ? speciesPhotos.length - 1 : prev - 1));
+  };
+  const goNextPhoto = () => {
+    if (!hasMultiplePhotos) return;
+    setPhotoIndex((prev) => (prev === speciesPhotos.length - 1 ? 0 : prev + 1));
+  };
 
   return (
+    <>
     <div className="species-detail-page plant-detail-page">
       {/* Header : retour */}
       <div className="plant-detail-header">
@@ -89,26 +104,38 @@ const PlantDetailPage = () => {
           {/* Photos de l'espèce */}
           {speciesPhotos.length > 0 && (
             <div className="species-photo-block">
-              <div className="species-photo-grid">
-                {speciesPhotos.slice(0, 3).map((url, index) => (
-                  <div
-                    key={index}
-                    className={
-                      index === 0
-                        ? "species-photo-item species-photo-main"
-                        : "species-photo-item species-photo-thumb"
-                    }
-                  >
-                    <img
-                      src={url}
-                      alt={
-                        species?.common_name ||
-                        species?.scientific_name ||
-                        "Photo espèce"
-                      }
-                    />
-                  </div>
-                ))}
+              <div className="species-photo-carousel">
+                <button
+                  type="button"
+                  className="species-photo-main"
+                  onClick={() => setIsLightboxOpen(true)}
+                >
+                  <img
+                    src={speciesPhotos[safePhotoIndex]}
+                    alt={species?.common_name || species?.scientific_name || "Photo espèce"}
+                  />
+                </button>
+                {hasMultiplePhotos && (
+                  <>
+                    <div className="species-photo-controls">
+                      <button type="button" className="photo-nav-btn" onClick={goPrevPhoto} aria-label="Photo précédente">‹</button>
+                      <span className="photo-counter">{safePhotoIndex + 1} / {speciesPhotos.length}</span>
+                      <button type="button" className="photo-nav-btn" onClick={goNextPhoto} aria-label="Photo suivante">›</button>
+                    </div>
+                    <div className="species-photo-thumbs">
+                      {speciesPhotos.map((url, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className={"species-photo-thumb" + (index === safePhotoIndex ? " is-active" : "")}
+                          onClick={() => setPhotoIndex(index)}
+                        >
+                          <img src={url} alt={species?.common_name || "Miniature"} />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -290,6 +317,16 @@ const PlantDetailPage = () => {
         )}
       </section>
     </div>
+    <ImageLightbox
+      isOpen={isLightboxOpen && speciesPhotos.length > 0}
+      images={speciesPhotos}
+      activeIndex={safePhotoIndex}
+      onClose={() => setIsLightboxOpen(false)}
+      onPrevious={goPrevPhoto}
+      onNext={goNextPhoto}
+      altBase={species?.common_name || "Photo espèce"}
+    />
+    </>
   );
 };
 
