@@ -13,6 +13,7 @@ export default function SpeciesListPage() {
   const [zoneFilter, setZoneFilter] = useState("all");
   const [familyFilter, setFamilyFilter] = useState("all");
   const [sortBy, setSortBy] = useState("common-name");
+  const [layout, setLayout] = useState("list");
 
   // Index zones par id
   const zonesById = useMemo(() => {
@@ -226,102 +227,220 @@ export default function SpeciesListPage() {
             <option value="family">Trier par famille</option>
             <option value="plantations">Trier par nombre de plantations</option>
           </select>
+
+          <button
+            type="button"
+            className="species-layout-toggle btn-secondary"
+            title={
+              layout === "list"
+                ? "Basculer en affichage cartes"
+                : "Basculer en affichage liste"
+            }
+            aria-label={
+              layout === "list"
+                ? "Basculer en affichage cartes"
+                : "Basculer en affichage liste"
+            }
+            onClick={() =>
+              setLayout((prev) => (prev === "list" ? "card" : "list"))
+            }
+          >
+            {layout === "list" ? "🔲" : "☰"}
+          </button>
         </div>
       </div>
 
-      {/* Liste compacte des espèces */}
-      <div className="species-list">
+      {/* Liste compacte des espèces + vue cartes */}
+      <div className={layout === "card" ? "species-list species-list-cards" : "species-list"}>
         {filteredSpecies.length === 0 ? (
           <div className="species-empty">
             Aucune espèce ne correspond à ces filtres.
           </div>
         ) : (
           filteredSpecies.map((sp) => (
-            <article
-              key={sp.id}
-              className="species-row species-row-clickable"
-              onClick={() => navigate(`/species/${sp.id}`)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  navigate(`/species/${sp.id}`);
-                }
-              }}
-              tabIndex={0}
-            >
-              <div className="species-row-thumb-wrap" aria-hidden="true">
-                {sp.firstPhoto ? (
-                  <img
-                    className="species-row-thumb"
-                    src={sp.firstPhoto}
-                    loading="lazy"
-                    alt=""
-                  />
-                ) : (
-                  <div className="species-row-thumb species-row-thumb-fallback">
-                    🌿
-                  </div>
-                )}
-              </div>
+            layout === "list" ? (
+              <article
+                key={sp.id}
+                className="species-row species-row-clickable"
+                onClick={() => navigate(`/species/${sp.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(`/species/${sp.id}`);
+                  }
+                }}
+                tabIndex={0}
+              >
+                <div className="species-row-thumb-wrap" aria-hidden="true">
+                  {sp.firstPhoto ? (
+                    <img
+                      className="species-row-thumb"
+                      src={sp.firstPhoto}
+                      loading="lazy"
+                      alt=""
+                    />
+                  ) : (
+                    <div className="species-row-thumb species-row-thumb-fallback">
+                      🌿
+                    </div>
+                  )}
+                </div>
 
-              {/* Ligne 1 : nom + nom scientifique */}
-              <div className="species-row-line1">
-                <span className="species-row-name">
-                  <b>{sp.common_name}</b>
-                </span>
-                {sp.scientific_name && (
-                  <span className="species-row-sci">
-                    {sp.scientific_name}
+                {/* Ligne 1 : nom + nom scientifique */}
+                <div className="species-row-line1">
+                  <span className="species-row-name">
+                    <b>{sp.common_name}</b>
                   </span>
-                )}
-                {sp.family && (
-                  <span>
-                    {" "}
-                    ({sp.family})
-                  </span>
-                )}
-              </div>
-              
-              {/* Ligne 2 : périodes + zones + actions */}
-              <div className="species-row-line2">
-                <div className="species-row-meta-left">
-                  <span>
-                    ✂️ Taille :{" "}
-                    {sp.pruning_period ? (
-                      sp.pruning_period
-                    ) : (
-                      <span className="muted">non renseignée</span>
-                    )}
-                  </span>
-                  <span>
-                    🌸 Floraison :{" "}
-                    {sp.flowering_period ? (
-                      sp.flowering_period
-                    ) : (
-                      <span className="muted">non renseignée</span>
-                    )}
-                  </span>
-                  <span>
-                    📍 {sp.instanceCount} plantation
-                    {sp.instanceCount > 1 ? "s" : ""}
-                    {sp.zonesInfo.length > 0 ? " · " : ""}
-                    {sp.zonesInfo.map((zone, index) => (
-                      <React.Fragment key={zone.id}>
-                        {index > 0 ? ", " : ""}
-                        <Link
-                          className="species-row-zone-link"
-                          to={`/zones/${zone.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {zone.name}
-                        </Link>
-                      </React.Fragment>
-                    ))}
+                  {sp.scientific_name && (
+                    <span className="species-row-sci">
+                      {sp.scientific_name}
+                    </span>
+                  )}
+                  {sp.family && <span> ({sp.family})</span>}
+                </div>
+
+                {/* Ligne 2 : périodes + zones + actions */}
+                <div className="species-row-line2">
+                  <div className="species-row-meta-left">
+                    <span>
+                      ✂️ Taille :{" "}
+                      {sp.pruning_period ? (
+                        sp.pruning_period
+                      ) : (
+                        <span className="muted">non renseignée</span>
+                      )}
+                    </span>
+                    <span>
+                      🌸 Floraison :{" "}
+                      {sp.flowering_period ? (
+                        sp.flowering_period
+                      ) : (
+                        <span className="muted">non renseignée</span>
+                      )}
+                    </span>
+                    <span>
+                      📍 {sp.instanceCount} plantation
+                      {sp.instanceCount > 1 ? "s" : ""}
+                      {sp.zonesInfo.length > 0 ? " · " : ""}
+                      {sp.zonesInfo.map((zone, index) => (
+                        <React.Fragment key={zone.id}>
+                          {index > 0 ? ", " : ""}
+                          <Link
+                            className="species-row-zone-link"
+                            to={`/zones/${zone.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {zone.name}
+                          </Link>
+                        </React.Fragment>
+                      ))}
+                    </span>
+                  </div>
+
+                  <div
+                    className="species-row-actions"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className="btn-secondary"
+                      onClick={() =>
+                        navigate(`/add-plant?speciesId=${sp.id}`)
+                      }
+                    >
+                      ➕ Ajouter une plantation
+                    </button>
+                    <button
+                      className="btn-icon-danger"
+                      title="Supprimer l'espèce"
+                      onClick={(e) => handleQuickDelete(e, sp)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ) : (
+              <article
+                key={sp.id}
+                className="species-row species-card species-row-clickable"
+                onClick={() => navigate(`/species/${sp.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(`/species/${sp.id}`);
+                  }
+                }}
+                tabIndex={0}
+              >
+                <div className="species-card-row1">
+                  <span className="species-row-name">
+                    <b>{sp.common_name}</b>
                   </span>
                 </div>
 
+                <div className="species-card-row2">
+                  {sp.scientific_name && (
+                    <span className="species-row-sci">
+                      {sp.scientific_name}
+                    </span>
+                  )}
+                  {sp.family && <span>({sp.family})</span>}
+                </div>
+
+                <div className="species-card-row3">
+                  <div className="species-row-thumb-wrap species-card-thumb-wrap" aria-hidden="true">
+                    {sp.firstPhoto ? (
+                      <img
+                        className="species-row-thumb species-card-thumb"
+                        src={sp.firstPhoto}
+                        loading="lazy"
+                        alt=""
+                      />
+                    ) : (
+                      <div className="species-row-thumb species-row-thumb-fallback species-card-thumb">
+                        🌿
+                      </div>
+                    )}
+                  </div>
+                  <div className="species-row-meta-left species-card-meta">
+                    <span>
+                      ✂️ Taille :{" "}
+                      {sp.pruning_period ? (
+                        sp.pruning_period
+                      ) : (
+                        <span className="muted">non renseignée</span>
+                      )}
+                    </span>
+                    <span>
+                      🌸 Floraison :{" "}
+                      {sp.flowering_period ? (
+                        sp.flowering_period
+                      ) : (
+                        <span className="muted">non renseignée</span>
+                      )}
+                    </span>
+                    <span>
+                      📍 {sp.instanceCount} plantation
+                      {sp.instanceCount > 1 ? "s" : ""}
+                      {sp.zonesInfo.length > 0 ? " · " : ""}
+                      {sp.zonesInfo.map((zone, index) => (
+                        <React.Fragment key={zone.id}>
+                          {index > 0 ? ", " : ""}
+                          <Link
+                            className="species-row-zone-link"
+                            to={`/zones/${zone.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {zone.name}
+                          </Link>
+                        </React.Fragment>
+                      ))}
+                    </span>
+                  </div>
+                </div>
+
                 <div
-                  className="species-row-actions"
+                  className="species-row-actions species-card-actions"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
@@ -340,9 +459,8 @@ export default function SpeciesListPage() {
                     🗑️
                   </button>
                 </div>
-              </div>
-
-            </article>
+              </article>
+            )
           ))
         )}
       </div>
