@@ -6,6 +6,7 @@ const { config } = require("./config");
 const { isPointGeometry, isPolygonGeometry, pointInPolygon, polygonInsidePolygon } = require("./geometry");
 
 const { port: PORT, corsOrigin } = config;
+const isGardenDebugEnabled = String(process.env.NEXT_PUBLIC_GARDEN_DEBUG || process.env.VITE_GARDEN_DEBUG || "").trim().toLowerCase() === "true";
 
 function corsHeaders(extra = {}) {
   return {
@@ -125,6 +126,7 @@ function getBBoxFromCoords(coords = []) {
 }
 
 function logApiGeometry(label, geometry) {
+  if (!isGardenDebugEnabled) return;
   const coordinates = geometry?.type === "Point" ? [geometry.coordinates] : geometry?.coordinates;
   console.log(`[GardenDebug][API] ${label}:`, {
     type: geometry?.type,
@@ -220,12 +222,14 @@ async function loadBootstrapData() {
     tasks: await db.prepare("SELECT * FROM tasks ORDER BY id").all(),
     speciesPhotos: (await db.prepare("SELECT * FROM species_photos ORDER BY species_id, sort_order, id").all()).map(toPhotoRow)
   };
-  console.log("[GardenDebug][API] Bootstrap raw objects:", {
-    gardenMap,
-    zoneGeometriesCount: zoneGeometries.length,
-    zonesCount: payload.zones.length,
-    plantationsCount: payload.plantations.length
-  });
+  if (isGardenDebugEnabled) {
+    console.log("[GardenDebug][API] Bootstrap raw objects:", {
+      gardenMap,
+      zoneGeometriesCount: zoneGeometries.length,
+      zonesCount: payload.zones.length,
+      plantationsCount: payload.plantations.length
+    });
+  }
   if (payload.gardenMap?.geometry) logApiGeometry("Garden geometry(bootstrap)", payload.gardenMap.geometry);
   payload.zones.forEach((zone) => logApiGeometry(`Zone geometry(bootstrap) ${zone.id}`, zone.geometry));
   payload.plantations.forEach((plantation) => logApiGeometry(`Plantation geometry(bootstrap) ${plantation.id}`, plantation.position));
@@ -263,7 +267,7 @@ async function handleRequest(req, res) {
   if (method === "GET" && url.pathname === "/api/garden-map") {
     const row = await getGardenMap();
     if (!row) return json(res, 404, { error: "Garden map not found" });
-    console.log("[GardenDebug][API] Garden raw row:", row);
+    if (isGardenDebugEnabled) console.log("[GardenDebug][API] Garden raw row:", row);
     logApiGeometry("Garden geometry", parseJson(row.geometry, null));
     json(res, 200, row);
     return;
@@ -293,7 +297,7 @@ async function handleRequest(req, res) {
       ORDER BY LOWER(z.name)
     `).all();
     const zones = rows.map((row) => serializeZone(row, row, row.planting_count));
-    console.log("[GardenDebug][API] Zones raw rows:", rows);
+    if (isGardenDebugEnabled) console.log("[GardenDebug][API] Zones raw rows:", rows);
     zones.forEach((zone) => logApiGeometry(`Zone geometry ${zone.id}`, zone.geometry));
     json(res, 200, zones);
     return;
@@ -500,7 +504,7 @@ async function handleRequest(req, res) {
     const now = new Date().toISOString();
     const created = await db.prepare("INSERT INTO plantations (species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *")
       .get(payload.species_id, payload.zone_id || null, payload.planted_at || payload.planting_date || null, payload.quantity || 1, payload.notes || null, payload.nickname || null, JSON.stringify(position), now, now);
-    console.log("[GardenDebug][API] Plantation raw created:", created);
+    if (isGardenDebugEnabled) console.log("[GardenDebug][API] Plantation raw created:", created);
     logApiGeometry("Plantation geometry(created)", position);
     json(res, 201, toPlantationRow(created));
     return;

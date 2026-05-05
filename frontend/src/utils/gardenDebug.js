@@ -1,7 +1,9 @@
+const isTrue = (value) => String(value || "").trim().toLowerCase() === "true";
+
 export const isGardenDebug = () =>
-  import.meta.env?.VITE_GARDEN_DEBUG === "true" ||
-  import.meta.env?.NEXT_PUBLIC_GARDEN_DEBUG === "true" ||
-  (typeof window !== "undefined" && window.localStorage.getItem("garden_debug") === "true");
+  isTrue(import.meta.env?.VITE_GARDEN_DEBUG) ||
+  isTrue(import.meta.env?.NEXT_PUBLIC_GARDEN_DEBUG) ||
+  (typeof window !== "undefined" && isTrue(window.localStorage.getItem("garden_debug")));
 
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
 
