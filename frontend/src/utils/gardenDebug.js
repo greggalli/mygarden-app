@@ -1,5 +1,6 @@
 export const isGardenDebug = () =>
-  process.env.NEXT_PUBLIC_GARDEN_DEBUG === "true" ||
+  import.meta.env?.VITE_GARDEN_DEBUG === "true" ||
+  import.meta.env?.NEXT_PUBLIC_GARDEN_DEBUG === "true" ||
   (typeof window !== "undefined" && window.localStorage.getItem("garden_debug") === "true");
 
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
