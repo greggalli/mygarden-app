@@ -6,7 +6,7 @@ function isPolygon(geometry) {
 }
 
 function pointToSvg([x, y], width, height) {
-  return [(x / width) * 100, ((height - y) / height) * 100];
+  return [x, height - y];
 }
 
 function polygonPoints(geometry, width, height) {
@@ -61,7 +61,7 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
         }
         if (!isPolygon(zone.geometry)) return null;
         const ring = zone.geometry.coordinates[0];
-        const [cx, cy] = pointToSvg(ring[0], width, height);
+        const [cx, cy] = pointToSvg(ring[0], resolvedWidth, resolvedHeight);
         return (
           <g key={zone.id} onClick={() => onZoneClick?.(zone)} style={{ cursor: "pointer" }}>
             <polygon points={polygonPoints(zone.geometry, width, height)} fill={debug ? "rgba(0,0,255,0.1)" : `hsl(${(idx * 77) % 360} 70% 75% / 0.5)`} stroke={debug ? "blue" : "#355"} strokeWidth="0.4" />

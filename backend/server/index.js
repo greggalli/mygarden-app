@@ -37,7 +37,8 @@ function readBody(req) {
 }
 
 function parseJson(text, fallback) {
-  if (!text) return fallback;
+  if (text == null || text === "") return fallback;
+  if (typeof text === "object") return text;
   try {
     return JSON.parse(text);
   } catch {
