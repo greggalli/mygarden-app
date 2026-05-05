@@ -23,3 +23,16 @@ test('resolveGardenDimensions prefers explicit width/height', async () => {
   assert.equal(result.resolvedWidth, 50);
   assert.equal(result.resolvedHeight, 10);
 });
+
+
+test('parseGeometry returns null for invalid JSON string', async () => {
+  const { parseGeometry } = await utilsPromise;
+  assert.equal(parseGeometry('{invalid'), null);
+});
+
+test('resolveGardenDimensions returns zero when geometry invalid and no explicit dimensions', async () => {
+  const { resolveGardenDimensions } = await utilsPromise;
+  const result = resolveGardenDimensions({}, null);
+  assert.equal(result.resolvedWidth, 0);
+  assert.equal(result.resolvedHeight, 0);
+});
