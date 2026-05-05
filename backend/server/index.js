@@ -98,6 +98,40 @@ function parseCoordinatesFromGeometry(geometry) {
   return [];
 }
 
+function getBBoxFromCoords(coords = []) {
+  const points = [];
+  const walk = (node) => {
+    if (!Array.isArray(node)) return;
+    if (node.length >= 2 && Number.isFinite(node[0]) && Number.isFinite(node[1])) {
+      points.push([node[0], node[1]]);
+      return;
+    }
+    node.forEach(walk);
+  };
+  walk(coords);
+  if (!points.length) return null;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  points.forEach(([x, y]) => {
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  });
+  return { minX, maxX, minY, maxY, pointCount: points.length };
+}
+
+function logApiGeometry(label, geometry) {
+  const coordinates = geometry?.type === "Point" ? [geometry.coordinates] : geometry?.coordinates;
+  console.log(`[GardenDebug][API] ${label}:`, {
+    type: geometry?.type,
+    coordinateCount: Array.isArray(coordinates) ? JSON.stringify(coordinates).length : 0,
+    bbox: getBBoxFromCoords(coordinates)
+  });
+}
+
 async function getGardenMap() {
   return db.prepare("SELECT * FROM garden_maps ORDER BY id LIMIT 1").get();
 }
@@ -176,7 +210,7 @@ async function loadBootstrapData() {
   });
 
   const gardenMap = await getGardenMap();
-  return {
+  const payload = {
     gardenMap: gardenMap ? { ...gardenMap, geometry: parseJson(gardenMap.geometry, {}) } : null,
     species: (await db.prepare("SELECT * FROM species ORDER BY LOWER(common_name)").all()).map(toSpeciesRow),
     zones,
@@ -185,6 +219,16 @@ async function loadBootstrapData() {
     tasks: await db.prepare("SELECT * FROM tasks ORDER BY id").all(),
     speciesPhotos: (await db.prepare("SELECT * FROM species_photos ORDER BY species_id, sort_order, id").all()).map(toPhotoRow)
   };
+  console.log("[GardenDebug][API] Bootstrap raw objects:", {
+    gardenMap,
+    zoneGeometriesCount: zoneGeometries.length,
+    zonesCount: payload.zones.length,
+    plantationsCount: payload.plantations.length
+  });
+  if (payload.gardenMap?.geometry) logApiGeometry("Garden geometry(bootstrap)", payload.gardenMap.geometry);
+  payload.zones.forEach((zone) => logApiGeometry(`Zone geometry(bootstrap) ${zone.id}`, zone.geometry));
+  payload.plantations.forEach((plantation) => logApiGeometry(`Plantation geometry(bootstrap) ${plantation.id}`, plantation.position));
+  return payload;
 }
 
 async function handleRequest(req, res) {
@@ -218,6 +262,8 @@ async function handleRequest(req, res) {
   if (method === "GET" && url.pathname === "/api/garden-map") {
     const row = await getGardenMap();
     if (!row) return json(res, 404, { error: "Garden map not found" });
+    console.log("[GardenDebug][API] Garden raw row:", row);
+    logApiGeometry("Garden geometry", parseJson(row.geometry, null));
     json(res, 200, row);
     return;
   }
@@ -245,7 +291,10 @@ async function handleRequest(req, res) {
       GROUP BY z.id
       ORDER BY LOWER(z.name)
     `).all();
-    json(res, 200, rows.map((row) => serializeZone(row, row, row.planting_count)));
+    const zones = rows.map((row) => serializeZone(row, row, row.planting_count));
+    console.log("[GardenDebug][API] Zones raw rows:", rows);
+    zones.forEach((zone) => logApiGeometry(`Zone geometry ${zone.id}`, zone.geometry));
+    json(res, 200, zones);
     return;
   }
 
@@ -450,6 +499,8 @@ async function handleRequest(req, res) {
     const now = new Date().toISOString();
     const created = await db.prepare("INSERT INTO plantations (species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *")
       .get(payload.species_id, payload.zone_id || null, payload.planted_at || payload.planting_date || null, payload.quantity || 1, payload.notes || null, payload.nickname || null, JSON.stringify(position), now, now);
+    console.log("[GardenDebug][API] Plantation raw created:", created);
+    logApiGeometry("Plantation geometry(created)", position);
     json(res, 201, toPlantationRow(created));
     return;
   }
