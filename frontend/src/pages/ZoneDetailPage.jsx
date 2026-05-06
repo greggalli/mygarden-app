@@ -58,11 +58,7 @@ export default function ZoneDetailPage() {
   return (
     <div className="zone-page-2col">
       <div className="zone-left-col">
-        <ZoneMiniMap zoneId={zone.id} rotated={isRotated} highlightedPlantId={hoveredPlantId} />
-      </div>
-
-      <div className="zone-right-col">
-        <div className="plants-title-row">
+        <div className="plants-title-row zone-header-row">
           <h2 className="section-title">{zone.name}</h2>
           <div className="zone-title-actions">
             <button
@@ -85,9 +81,12 @@ export default function ZoneDetailPage() {
             <div className="zone-infos-label">Description</div>
             <div className="zone-infos-value">{zone.description || "—"}</div>
           </div>
-
         </div>
 
+        <ZoneMiniMap zoneId={zone.id} rotated={isRotated} highlightedPlantId={hoveredPlantId} />
+      </div>
+
+      <div className="zone-right-col">
         <h2 className="section-title">Plantations dans la zone ({plantsInZone.length})</h2>
         {plantsInZone.length === 0 ? (
           <div className="zone-detail-empty">Aucune plantation dans cette zone.</div>
