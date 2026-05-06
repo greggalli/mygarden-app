@@ -445,6 +445,13 @@ button {
   margin-bottom: 0;
 }
 
+.zone-header-description {
+  margin: -0.25rem 0 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #555;
+}
+
 @media (max-width: 900px) {
   .zone-page-2col {
     flex-wrap: wrap;
