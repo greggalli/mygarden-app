@@ -9,6 +9,7 @@ export default function ZoneDetailPage() {
   const { data, isDataReady } = useGardenData();
   const { zones, instances, species } = data;
   const [isRotated, setIsRotated] = useState(false);
+  const [hoveredPlantId, setHoveredPlantId] = useState(null);
 
   const routeZoneId = String(zoneId ?? "").trim();
 
@@ -56,6 +57,10 @@ export default function ZoneDetailPage() {
   return (
     <div className="zone-page-2col">
       <div className="zone-left-col">
+        <ZoneMiniMap zoneId={zone.id} rotated={isRotated} highlightedPlantId={hoveredPlantId} />
+      </div>
+
+      <div className="zone-right-col">
         <div className="plants-title-row">
           <h2 className="section-title">{zone.name}</h2>
           <div className="zone-title-actions">
@@ -97,6 +102,8 @@ export default function ZoneDetailPage() {
                 <article
                   key={inst.id}
                   className="plant-card plant-card-clickable"
+                  onMouseEnter={() => setHoveredPlantId(inst.id)}
+                  onMouseLeave={() => setHoveredPlantId(null)}
                   onClick={() => navigate(`/plants/${inst.id}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -120,10 +127,6 @@ export default function ZoneDetailPage() {
         )}
 
         <Link to="/zones" className="back-link">← Retour aux zones</Link>
-      </div>
-
-      <div className="zone-right-col">
-        <ZoneMiniMap zoneId={zone.id} rotated={isRotated} />
       </div>
     </div>
   );

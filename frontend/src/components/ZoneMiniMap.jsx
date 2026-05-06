@@ -1,5 +1,6 @@
 // src/components/ZoneMiniMap.jsx
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
 
 function getZoneBounds(zone) {
@@ -12,19 +13,20 @@ function getZoneBounds(zone) {
       const maxX = Math.max(...xs);
       const minY = Math.min(...ys);
       const maxY = Math.max(...ys);
-      return { minX, maxX, minY, maxY, w_pct: Math.max(1, maxX - minX), h_pct: Math.max(1, maxY - minY) };
+      return { minX, maxX, minY, maxY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
     }
   }
 
   if (zone?.bbox) {
     const { x_pct, y_pct, w_pct, h_pct } = zone.bbox;
-    return { minX: x_pct, maxX: x_pct + w_pct, minY: y_pct, maxY: y_pct + h_pct, w_pct, h_pct };
+    return { minX: x_pct, maxX: x_pct + w_pct, minY: y_pct, maxY: y_pct + h_pct, width: w_pct, height: h_pct };
   }
 
   return null;
 }
 
-export default function ZoneMiniMap({ zoneId, rotated = false }) {
+export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantId = null }) {
+  const navigate = useNavigate();
   const { data } = useGardenData();
   const { zones, instances, species } = data;
   const zoneKey = String(zoneId);
@@ -46,8 +48,8 @@ export default function ZoneMiniMap({ zoneId, rotated = false }) {
     const [x, y] = Array.isArray(plantPos?.coordinates)
       ? plantPos.coordinates
       : [plantPos?.x_pct, plantPos?.y_pct];
-    const relX = ((x - zoneBounds.minX) / zoneBounds.w_pct) * 100;
-    const relY = ((y - zoneBounds.minY) / zoneBounds.h_pct) * 100;
+    const relX = ((x - zoneBounds.minX) / zoneBounds.width) * 100;
+    const relY = ((y - zoneBounds.minY) / zoneBounds.height) * 100;
     return { x_pct: relX, y_pct: relY };
   }
 
@@ -58,8 +60,8 @@ export default function ZoneMiniMap({ zoneId, rotated = false }) {
 
   function toGlobalCoordinates(relX, relY) {
     return {
-      x_pct: zoneBounds.minX + (relX / 100) * zoneBounds.w_pct,
-      y_pct: zoneBounds.minY + (relY / 100) * zoneBounds.h_pct
+      x: zoneBounds.minX + (relX / 100) * zoneBounds.width,
+      y: zoneBounds.minY + (relY / 100) * zoneBounds.height
     };
   }
 
@@ -69,10 +71,11 @@ export default function ZoneMiniMap({ zoneId, rotated = false }) {
   }
 
   function formatCoords(coords) {
-    return `(${coords.x_pct.toFixed(1)}%, ${coords.y_pct.toFixed(1)}%)`;
+    return `(${coords.x.toFixed(2)}, ${coords.y.toFixed(2)})`;
   }
 
   function handleMapHover(event) {
+    if (event.target.closest(".zone-minimap-pin")) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const displayX = ((event.clientX - rect.left) / rect.width) * 100;
     const displayY = ((event.clientY - rect.top) / rect.height) * 100;
@@ -87,12 +90,26 @@ export default function ZoneMiniMap({ zoneId, rotated = false }) {
     });
   }
 
+  function handleMapClick(event) {
+    if (event.target.closest(".zone-minimap-pin")) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const displayX = ((event.clientX - rect.left) / rect.width) * 100;
+    const displayY = ((event.clientY - rect.top) / rect.height) * 100;
+    const relative = displayToRelative(displayX, displayY);
+    const globalCoords = toGlobalCoordinates(relative.x, relative.y);
+    const shouldCreate = window.confirm("Créer une nouvelle plantation ?");
+    if (!shouldCreate) return;
+    const params = new URLSearchParams({ zone_id: String(zone.id), x: globalCoords.x.toFixed(2), y: globalCoords.y.toFixed(2) });
+    navigate(`/plants/new?${params.toString()}`);
+  }
+
   return (
     <div className="zone-minimap-card">
       <div
         className="zone-minimap-area zone-minimap-area-only"
         onMouseMove={handleMapHover}
         onMouseLeave={() => setHoverState(null)}
+        onClick={handleMapClick}
       >
         {plantsInZone.map((plantInstance) => {
           const sp = species.find((s) => s.id === plantInstance.species_id);
@@ -106,7 +123,9 @@ export default function ZoneMiniMap({ zoneId, rotated = false }) {
               className="zone-minimap-pin"
               style={{
                 left: `${display.x}%`,
-                top: `${display.y}%`
+                top: `${display.y}%`,
+                outline: highlightedPlantId === plantInstance.id ? "2px solid #c62828" : "none",
+                outlineOffset: highlightedPlantId === plantInstance.id ? "2px" : "0"
               }}
               onMouseEnter={() => {
                 setHoverState({
@@ -117,6 +136,10 @@ export default function ZoneMiniMap({ zoneId, rotated = false }) {
                 });
               }}
               onMouseLeave={() => setHoverState(null)}
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(`/plants/${plantInstance.id}`);
+              }}
             >
               🌱
             </button>
