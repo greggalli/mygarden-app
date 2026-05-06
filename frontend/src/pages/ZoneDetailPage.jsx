@@ -6,12 +6,32 @@ import ZoneMiniMap from "../components/ZoneMiniMap";
 export default function ZoneDetailPage() {
   const { zoneId } = useParams();
   const navigate = useNavigate();
-  const { data } = useGardenData();
+  const { data, isDataReady } = useGardenData();
   const { zones, instances, species } = data;
   const [isRotated, setIsRotated] = useState(false);
 
-  const zone = zones.find((z) => z.id === Number(zoneId));
-  const plantsInZone = instances.filter((inst) => inst.zone_id === Number(zoneId));
+  const numericZoneId = Number(zoneId);
+
+  if (!Number.isFinite(numericZoneId)) {
+    return (
+      <div className="plant-detail-page">
+        <p>Zone introuvable.</p>
+        <Link to="/zones" className="back-link">← Retour aux zones</Link>
+      </div>
+    );
+  }
+
+  if (!isDataReady) {
+    return (
+      <div className="plant-detail-page">
+        <p>Chargement de la zone...</p>
+        <Link to="/zones" className="back-link">← Retour aux zones</Link>
+      </div>
+    );
+  }
+
+  const zone = zones.find((z) => z.id === numericZoneId);
+  const plantsInZone = instances.filter((inst) => inst.zone_id === numericZoneId);
 
   if (!zone) {
     return (
