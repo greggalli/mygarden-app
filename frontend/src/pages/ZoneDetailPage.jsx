@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
 import ZoneMiniMap from "../components/ZoneMiniMap";
+import HoverPreviewImage from "../components/HoverPreviewImage";
 
 export default function ZoneDetailPage() {
   const { zoneId } = useParams();
@@ -85,17 +86,13 @@ export default function ZoneDetailPage() {
             <div className="zone-infos-value">{zone.description || "—"}</div>
           </div>
 
-          <div className="zone-infos-row">
-            <div className="zone-infos-label">Nombre de plantations</div>
-            <div className="zone-infos-value">{plantsInZone.length}</div>
-          </div>
         </div>
 
         <h2 className="section-title">Plantations dans la zone ({plantsInZone.length})</h2>
         {plantsInZone.length === 0 ? (
           <div className="zone-detail-empty">Aucune plantation dans cette zone.</div>
         ) : (
-          <div className="plants-grid">
+          <div className="plants-grid plants-grid-single-col">
             {plantsInZone.map((inst) => {
               const sp = species.find((s) => s.id === inst.species_id);
               return (
@@ -113,6 +110,12 @@ export default function ZoneDetailPage() {
                   }}
                   tabIndex={0}
                 >
+                  <HoverPreviewImage
+                    src={sp?.photo_url}
+                    alt={sp?.common_name || inst.nickname}
+                    className="plant-photo"
+                    previewClassName="plant-photo-preview"
+                  />
                   <div className="plant-info">
                     <h4>{inst.nickname}</h4>
                     <p>
