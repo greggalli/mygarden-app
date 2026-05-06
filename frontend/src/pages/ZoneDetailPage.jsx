@@ -10,9 +10,9 @@ export default function ZoneDetailPage() {
   const { zones, instances, species } = data;
   const [isRotated, setIsRotated] = useState(false);
 
-  const numericZoneId = Number(zoneId);
+  const routeZoneId = String(zoneId ?? "").trim();
 
-  if (!Number.isFinite(numericZoneId)) {
+  if (!routeZoneId) {
     return (
       <div className="plant-detail-page">
         <p>Zone introuvable.</p>
@@ -30,8 +30,19 @@ export default function ZoneDetailPage() {
     );
   }
 
-  const zone = zones.find((z) => z.id === numericZoneId);
-  const plantsInZone = instances.filter((inst) => inst.zone_id === numericZoneId);
+  const zone = zones.find((z) => String(z.id) === routeZoneId);
+  const plantsInZone = instances.filter((inst) => String(inst.zone_id) === routeZoneId);
+
+  if (import.meta.env.DEV) {
+    console.debug("[ZoneDetailPage] lookup", {
+      routeZoneId,
+      availableZoneIds: zones.map((z) => z.id),
+      matchedZoneId: zone?.id ?? null,
+      isDataReady,
+      zonesCount: zones.length,
+      instancesCount: instances.length
+    });
+  }
 
   if (!zone) {
     return (

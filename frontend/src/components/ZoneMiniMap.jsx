@@ -5,8 +5,9 @@ import { useGardenData } from "../data/GardenDataContext";
 export default function ZoneMiniMap({ zoneId, rotated = false }) {
   const { data } = useGardenData();
   const { zones, instances, species } = data;
-  const zone = zones.find((z) => z.id === Number(zoneId));
-  const plantsInZone = instances.filter((inst) => inst.zone_id === Number(zoneId));
+  const zoneKey = String(zoneId);
+  const zone = zones.find((z) => String(z.id) === zoneKey);
+  const plantsInZone = instances.filter((inst) => String(inst.zone_id) === zoneKey);
   const [hoverState, setHoverState] = useState(null);
 
   const zoneBounds = useMemo(() => {
