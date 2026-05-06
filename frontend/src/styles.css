@@ -1203,6 +1203,17 @@ button {
   transform-origin: center center;
 }
 
+
+.zone-minimap-pin-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zone-minimap-pin-icon-keep-upright {
+  transform: rotate(-90deg);
+}
+
 .zone-minimap-tooltip {
   position: absolute;
   transform: translate(-50%, calc(-100% - 8px));

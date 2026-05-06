@@ -67,6 +67,13 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
     return { x: centeredY + 50, y: 50 - centeredX };
   }
 
+  function relativeToDisplay(relativeX, relativeY) {
+    if (!rotated) return { x: relativeX, y: relativeY };
+    const centeredX = relativeX - 50;
+    const centeredY = relativeY - 50;
+    return { x: 50 - centeredY, y: centeredX + 50 };
+  }
+
   function formatCoords(coords) {
     return `(${coords.x.toFixed(2)}, ${coords.y.toFixed(2)})`;
   }
@@ -111,6 +118,7 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
         {plantsInZone.map((plantInstance) => {
           const sp = species.find((s) => s.id === plantInstance.species_id);
           const rel = toRelativePosition(plantInstance.position);
+          const displayPos = relativeToDisplay(rel.x_pct, rel.y_pct);
 
           return (
             <button
@@ -118,8 +126,8 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
               type="button"
               className="zone-minimap-pin"
               style={{
-                left: `${rel.x_pct}%`,
-                top: `${rel.y_pct}%`,
+                left: `${displayPos.x}%`,
+                top: `${displayPos.y}%`,
                 outline: highlightedPlantId === plantInstance.id ? "2px solid #c62828" : "none",
                 outlineOffset: highlightedPlantId === plantInstance.id ? "2px" : "0"
               }}
@@ -127,10 +135,10 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
                 const coords = toGlobalCoordinates(rel.x_pct, rel.y_pct);
                 setHoverState({
                   type: "plant",
-                  left: rel.x_pct,
-                  top: rel.y_pct,
+                  left: displayPos.x,
+                  top: displayPos.y,
                   label: `${plantInstance.nickname || sp?.common_name || "Plante"} ${formatCoords(coords)}`,
-                  image: sp?.photo_url || null
+                  image: sp?.photos?.[0] || null
                 });
               }}
               onMouseLeave={() => setHoverState(null)}
@@ -139,7 +147,7 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
                 navigate(`/plants/${plantInstance.id}`);
               }}
             >
-              🌱
+              <span className={`zone-minimap-pin-icon ${rotated ? "zone-minimap-pin-icon-keep-upright" : ""}`}>🌱</span>
             </button>
           );
         })}

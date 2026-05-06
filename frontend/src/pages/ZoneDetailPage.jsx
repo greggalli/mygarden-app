@@ -110,12 +110,16 @@ export default function ZoneDetailPage() {
                   }}
                   tabIndex={0}
                 >
-                  <HoverPreviewImage
-                    src={sp?.photo_url}
-                    alt={sp?.common_name || inst.nickname}
-                    className="plant-photo"
-                    previewClassName="plant-photo-preview"
-                  />
+                  {sp?.photos?.[0] ? (
+                    <HoverPreviewImage
+                      src={sp.photos[0]}
+                      alt={sp?.common_name || inst.nickname}
+                      className="plant-photo"
+                      previewClassName="plant-photo-preview"
+                    />
+                  ) : (
+                    <div className="plant-photo instance-row-thumb-fallback" aria-hidden="true">🌿</div>
+                  )}
                   <div className="plant-info">
                     <h4>{inst.nickname}</h4>
                     <p>
