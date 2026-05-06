@@ -1166,3 +1166,48 @@ button {
   background: #b71c1c;
   color: #fff;
 }
+
+.zone-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.icon-btn {
+  background: #eef6ee;
+  color: #1b5e20;
+  border: 1px solid #b8d8ba;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.55rem;
+  line-height: 1;
+}
+
+.icon-btn:hover {
+  background: #dff0e0;
+}
+
+.zone-minimap-area-only {
+  background: #6da56f;
+  border: 1px solid #1b5e20;
+  box-shadow: none;
+}
+
+.zone-minimap-tooltip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 8px));
+  background: rgba(12, 40, 14, 0.92);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  padding: 0.3rem 0.45rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.zone-minimap-tooltip-small {
+  font-size: 0.68rem;
+  padding: 0.2rem 0.35rem;
+}

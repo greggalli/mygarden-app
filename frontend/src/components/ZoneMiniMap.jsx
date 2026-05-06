@@ -1,94 +1,122 @@
 // src/components/ZoneMiniMap.jsx
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { useGardenData } from "../data/GardenDataContext";
 
-export default function ZoneMiniMap({ zoneId }) {
+export default function ZoneMiniMap({ zoneId, rotated = false }) {
   const { data } = useGardenData();
   const { zones, instances, species } = data;
   const zone = zones.find((z) => z.id === Number(zoneId));
-  const plantsInZone = instances.filter(
-    (inst) => inst.zone_id === Number(zoneId)
-  );
+  const plantsInZone = instances.filter((inst) => inst.zone_id === Number(zoneId));
+  const [hoverState, setHoverState] = useState(null);
 
-  if (!zone) {
+  const zoneBounds = useMemo(() => {
+    if (!zone?.bbox) return null;
+    const { x_pct, y_pct, w_pct, h_pct } = zone.bbox;
+    return {
+      minX: x_pct,
+      maxX: x_pct + w_pct,
+      minY: y_pct,
+      maxY: y_pct + h_pct,
+      w_pct,
+      h_pct
+    };
+  }, [zone]);
+
+  if (!zone || !zoneBounds) {
     return (
       <div className="zone-minimap-card">
-        <div className="zone-minimap-inner zone-minimap-error">
-          Zone introuvable
-        </div>
+        <div className="zone-minimap-inner zone-minimap-error">Zone introuvable</div>
       </div>
     );
   }
 
-  // on va utiliser la bbox pour la taille et les coordonnées relatives
-  const { bbox, color } = zone;
-
-  // util : convertit coord globale plante -> coord relative dans la zone
   function toRelativePosition(plantPos) {
-    const relX =
-      ((plantPos.x_pct - bbox.x_pct) / bbox.w_pct) * 100;
-    const relY =
-      ((plantPos.y_pct - bbox.y_pct) / bbox.h_pct) * 100;
+    const relX = ((plantPos.x_pct - zoneBounds.minX) / zoneBounds.w_pct) * 100;
+    const relY = ((plantPos.y_pct - zoneBounds.minY) / zoneBounds.h_pct) * 100;
     return { x_pct: relX, y_pct: relY };
+  }
+
+  function toDisplayPoint(relX, relY) {
+    if (!rotated) return { x: relX, y: relY };
+    return { x: 100 - relY, y: relX };
+  }
+
+  function toGlobalCoordinates(relX, relY) {
+    return {
+      x_pct: zoneBounds.minX + (relX / 100) * zoneBounds.w_pct,
+      y_pct: zoneBounds.minY + (relY / 100) * zoneBounds.h_pct
+    };
+  }
+
+  function displayToRelative(displayX, displayY) {
+    if (!rotated) return { x: displayX, y: displayY };
+    return { x: displayY, y: 100 - displayX };
+  }
+
+  function formatCoords(coords) {
+    return `(${coords.x_pct.toFixed(1)}%, ${coords.y_pct.toFixed(1)}%)`;
+  }
+
+  function handleMapHover(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const displayX = ((event.clientX - rect.left) / rect.width) * 100;
+    const displayY = ((event.clientY - rect.top) / rect.height) * 100;
+    const relative = displayToRelative(displayX, displayY);
+    const globalCoords = toGlobalCoordinates(relative.x, relative.y);
+
+    setHoverState({
+      type: "coords",
+      left: displayX,
+      top: displayY,
+      label: formatCoords(globalCoords)
+    });
   }
 
   return (
     <div className="zone-minimap-card">
       <div
-        className="zone-minimap-area"
-        style={{
-          // On fixe un ratio visuel constant (ex: 300x200),
-          // mais le contenu interne se base sur % relatifs
-          backgroundColor: hexToRgba(color, 0.15),
-          borderColor: color
-        }}
+        className="zone-minimap-area zone-minimap-area-only"
+        onMouseMove={handleMapHover}
+        onMouseLeave={() => setHoverState(null)}
       >
-        {/* Etiquette zone */}
-        <div className="zone-minimap-header-chip">
-          <div className="zone-minimap-name">{zone.name}</div>
-          <div className="zone-minimap-count">
-            {plantsInZone.length} plante
-            {plantsInZone.length > 1 ? "s" : ""}
-          </div>
-        </div>
-
-        {/* Pins des plantes dans CETTE zone, positionnées en relatif */}
         {plantsInZone.map((plantInstance) => {
-          const sp = species.find(
-            (s) => s.id === plantInstance.species_id
-          );
+          const sp = species.find((s) => s.id === plantInstance.species_id);
           const rel = toRelativePosition(plantInstance.position);
+          const display = toDisplayPoint(rel.x_pct, rel.y_pct);
 
           return (
-            <div
+            <button
               key={plantInstance.id}
+              type="button"
               className="zone-minimap-pin"
               style={{
-                left: `${rel.x_pct}%`,
-                top: `${rel.y_pct}%`
+                left: `${display.x}%`,
+                top: `${display.y}%`
               }}
-              title={
-                sp
-                  ? `${plantInstance.nickname} (${sp.common_name})`
-                  : plantInstance.nickname
-              }
+              onMouseEnter={() => {
+                setHoverState({
+                  type: "plant",
+                  left: display.x,
+                  top: display.y,
+                  label: `${plantInstance.nickname || sp?.common_name || "Plante"} ${formatCoords(plantInstance.position)}`
+                });
+              }}
+              onMouseLeave={() => setHoverState(null)}
             >
               🌱
-            </div>
+            </button>
           );
         })}
+
+        {hoverState ? (
+          <div
+            className={`zone-minimap-tooltip ${hoverState.type === "coords" ? "zone-minimap-tooltip-small" : ""}`}
+            style={{ left: `${hoverState.left}%`, top: `${hoverState.top}%` }}
+          >
+            {hoverState.label}
+          </div>
+        ) : null}
       </div>
     </div>
   );
-}
-
-// simple util déjà utilisée ailleurs
-function hexToRgba(hex, alpha) {
-  if (!hex || typeof hex !== "string" || hex[0] !== "#" || hex.length < 7) {
-    return `rgba(100,100,100,${alpha})`;
-  }
-  const r = parseInt(hex.slice(1, 3), 16) || 0;
-  const g = parseInt(hex.slice(3, 5), 16) || 0;
-  const b = parseInt(hex.slice(5, 7), 16) || 0;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }

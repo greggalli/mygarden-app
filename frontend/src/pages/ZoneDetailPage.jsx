@@ -1,13 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
-import GardenMapCanvas from "../components/GardenMapCanvas";
+import ZoneMiniMap from "../components/ZoneMiniMap";
 
 export default function ZoneDetailPage() {
   const { zoneId } = useParams();
   const navigate = useNavigate();
   const { data } = useGardenData();
-  const { zones, instances, species, gardenMap } = data;
+  const { zones, instances, species } = data;
+  const [isRotated, setIsRotated] = useState(false);
 
   const zone = zones.find((z) => z.id === Number(zoneId));
   const plantsInZone = instances.filter((inst) => inst.zone_id === Number(zoneId));
@@ -26,9 +27,20 @@ export default function ZoneDetailPage() {
       <div className="zone-left-col">
         <div className="plants-title-row">
           <h2 className="section-title">{zone.name}</h2>
-          <button type="button" className="btn-secondary" onClick={() => navigate(`/zones/${zone.id}/edit`)}>
-            Modifier
-          </button>
+          <div className="zone-title-actions">
+            <button
+              type="button"
+              className="icon-btn"
+              title="Tourner la carte de 90° vers la droite"
+              aria-label="Tourner la carte de 90° vers la droite"
+              onClick={() => setIsRotated((value) => !value)}
+            >
+              ↻90°
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => navigate(`/zones/${zone.id}/edit`)}>
+              Modifier
+            </button>
+          </div>
         </div>
 
         <div className="zone-infos-card">
@@ -41,16 +53,9 @@ export default function ZoneDetailPage() {
             <div className="zone-infos-label">Nombre de plantations</div>
             <div className="zone-infos-value">{plantsInZone.length}</div>
           </div>
-
-          <div className="zone-infos-row"><div className="zone-infos-label">Géométrie</div><div className="zone-infos-value">Polygon</div></div>
-          <GardenMapCanvas gardenMap={gardenMap} zones={[zone]} plantations={plantsInZone} onPlantationClick={(p)=>navigate(`/plants/${p.id}`)} />
         </div>
 
-        <Link to="/zones" className="back-link">← Retour aux zones</Link>
-      </div>
-
-      <div className="zone-right-col">
-        <h2 className="section-title">Plantations liées</h2>
+        <h2 className="section-title">Plantations dans la zone ({plantsInZone.length})</h2>
         {plantsInZone.length === 0 ? (
           <div className="zone-detail-empty">Aucune plantation dans cette zone.</div>
         ) : (
@@ -82,6 +87,12 @@ export default function ZoneDetailPage() {
             })}
           </div>
         )}
+
+        <Link to="/zones" className="back-link">← Retour aux zones</Link>
+      </div>
+
+      <div className="zone-right-col">
+        <ZoneMiniMap zoneId={zone.id} rotated={isRotated} />
       </div>
     </div>
   );
