@@ -76,12 +76,7 @@ export default function ZoneDetailPage() {
           </div>
         </div>
 
-        <div className="zone-infos-card">
-          <div className="zone-infos-row">
-            <div className="zone-infos-label">Description</div>
-            <div className="zone-infos-value">{zone.description || "—"}</div>
-          </div>
-        </div>
+        <p className="zone-header-description">{zone.description || "—"}</p>
 
         <ZoneMiniMap zoneId={zone.id} rotated={isRotated} highlightedPlantId={hoveredPlantId} />
       </div>
