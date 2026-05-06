@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import { pointInPolygon } from "../utils/geojson";
 
 export default function AddPlantPage() {
   const navigate = useNavigate();
@@ -15,8 +16,11 @@ export default function AddPlantPage() {
     zone_id: "",
     nickname: "",
     planting_date: "",
-    notes: ""
+    notes: "",
+    x: "",
+    y: ""
   });
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     if (preselectedSpeciesId) {
@@ -34,6 +38,7 @@ export default function AddPlantPage() {
 
   const handlePlantSubmit = async (e) => {
     e.preventDefault();
+    setFormError("");
 
     const maxId =
       instances.length > 0
@@ -43,6 +48,26 @@ export default function AddPlantPage() {
     const nickname = plantForm.nickname.trim();
     const notes = plantForm.notes.trim();
 
+    const selectedZone = zones.find((z) => z.id === Number(plantForm.zone_id));
+    const zoneGeometry = selectedZone?.geometry;
+    const x = Number(plantForm.x);
+    const y = Number(plantForm.y);
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      setFormError("Les coordonnées X et Y sont obligatoires et doivent être numériques.");
+      return;
+    }
+    if (!zoneGeometry || zoneGeometry.type !== "Polygon" || !Array.isArray(zoneGeometry.coordinates)) {
+      setFormError("La zone sélectionnée n'a pas de géométrie valide.");
+      return;
+    }
+    const point = { type: "Point", coordinates: [x, y] };
+    const inside = pointInPolygon(point, zoneGeometry);
+    if (!inside) {
+      setFormError("Les coordonnées de la plantation doivent se trouver à l'intérieur de la zone sélectionnée.");
+      return;
+    }
+
     const newPlant = {
       id: maxId + 1,
       species_id: Number(plantForm.species_id),
@@ -50,7 +75,7 @@ export default function AddPlantPage() {
       nickname,
       planting_date: plantForm.planting_date || null,
       notes,
-      position: { x_pct: 50, y_pct: 50 }
+      position: point
     };
 
     if (!newPlant.species_id || !newPlant.zone_id || !newPlant.nickname) {
@@ -58,7 +83,12 @@ export default function AddPlantPage() {
       return;
     }
 
-    await addPlantInstance(newPlant);
+    try {
+      await addPlantInstance(newPlant);
+    } catch (error) {
+      setFormError(error.message);
+      return;
+    }
     navigate("/plants");
   };
 
@@ -123,6 +153,16 @@ export default function AddPlantPage() {
           />
         </label>
 
+
+        <label>
+          Coordonnée X *
+          <input type="number" name="x" value={plantForm.x} onChange={handlePlantChange} required />
+        </label>
+
+        <label>
+          Coordonnée Y *
+          <input type="number" name="y" value={plantForm.y} onChange={handlePlantChange} required />
+        </label>
         <label>
           Notes
           <textarea
@@ -135,7 +175,8 @@ export default function AddPlantPage() {
           />
         </label>
 
-        <button type="submit">Ajoputer la plantation</button>
+        <button type="submit">Ajouter la plantation</button>
+        {formError && <p className="muted" style={{ color: "#b71c1c" }}>{formError}</p>}
       </form>
 
       <Link to="/plants" className="back-link">

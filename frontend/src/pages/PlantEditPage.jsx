@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import { pointInPolygon } from "../utils/geojson";
 
 export default function PlantEditPage() {
   const { plantId } = useParams();
@@ -18,8 +19,11 @@ export default function PlantEditPage() {
     zone_id: inst?.zone_id || "",
     nickname: inst?.nickname || "",
     planting_date: inst?.planting_date || "",
-    notes: inst?.notes || ""
+    notes: inst?.notes || "",
+    x: inst?.position?.coordinates?.[0] ?? "",
+    y: inst?.position?.coordinates?.[1] ?? ""
   });
+  const [formError, setFormError] = useState("");
 
   // 🔒 Si la plante n’existe pas, on fait le return après tous les hooks
   if (!inst) {
@@ -44,19 +48,40 @@ export default function PlantEditPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    setFormError("");
 
     if (!form.species_id || !form.zone_id || !form.nickname.trim()) {
       alert("Espèce, zone et nom sont obligatoires.");
       return;
     }
 
-    await updatePlantInstance(inst.id, {
+    const x = Number(form.x);
+    const y = Number(form.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      setFormError("Les coordonnées X et Y sont obligatoires et doivent être numériques.");
+      return;
+    }
+    const selectedZone = zones.find((z) => z.id === Number(form.zone_id));
+    if (!selectedZone?.geometry || !pointInPolygon({ type: "Point", coordinates: [x, y] }, selectedZone.geometry)) {
+      setFormError(selectedZone?.geometry
+        ? "Les coordonnées de la plantation doivent se trouver à l'intérieur de la zone sélectionnée."
+        : "La zone sélectionnée n'a pas de géométrie valide.");
+      return;
+    }
+
+    try {
+      await updatePlantInstance(inst.id, {
       species_id: form.species_id,
       zone_id: form.zone_id,
       nickname: form.nickname.trim(),
       planting_date: form.planting_date || null,
-      notes: form.notes.trim()
+      notes: form.notes.trim(),
+      position: { type: "Point", coordinates: [x, y] }
     });
+    } catch (error) {
+      setFormError(error.message);
+      return;
+    }
 
     alert("Plantation mise à jour.");
     navigate(`/plants/${inst.id}`);
@@ -123,6 +148,16 @@ export default function PlantEditPage() {
         </label>
 
         <label>
+          Coordonnée X *
+          <input type="number" name="x" value={form.x} onChange={handleChange} required />
+        </label>
+
+        <label>
+          Coordonnée Y *
+          <input type="number" name="y" value={form.y} onChange={handleChange} required />
+        </label>
+
+        <label>
           Date de plantation
           <input
             type="date"
@@ -158,6 +193,7 @@ export default function PlantEditPage() {
             🗑️ Supprimer la plantation
           </button>
         </div>
+        {formError && <p className="muted" style={{ color: "#b71c1c" }}>{formError}</p>}
       </form>
 
       <Link

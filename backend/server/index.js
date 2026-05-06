@@ -492,15 +492,15 @@ async function handleRequest(req, res) {
   if (method === "POST" && url.pathname === "/api/plantations") {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const position = payload.position || null;
-    if (position && !isPointGeometry(position)) return json(res, 400, { error: "Plantation position must be a GeoJSON Point" });
+    if (!position || !isPointGeometry(position)) return json(res, 400, { error: "La position de la plantation doit être un Point GeoJSON valide." });
+    if (!payload.zone_id) return json(res, 400, { error: "Veuillez sélectionner une zone avant de valider les coordonnées." });
     const gardenMap = await getGardenMap();
     const gardenGeometry = parseJson(gardenMap?.geometry, null);
-    if (position && gardenGeometry && !pointInPolygon(position, gardenGeometry)) return json(res, 400, { error: "Plantation point must be inside garden boundary" });
-    if (position && payload.zone_id) {
-      const zgeom = await db.prepare("SELECT geometry_json FROM zone_geometries WHERE zone_id = ?").get(payload.zone_id);
-      const zoneGeometry = parseJson(zgeom?.geometry_json, null);
-      if (zoneGeometry && !pointInPolygon(position, zoneGeometry)) return json(res, 400, { error: "Plantation point must be inside its zone" });
-    }
+    if (position && gardenGeometry && !pointInPolygon(position, gardenGeometry)) return json(res, 400, { error: "Les coordonnées de la plantation doivent se trouver dans les limites du jardin." });
+    const zgeom = await db.prepare("SELECT geometry_json FROM zone_geometries WHERE zone_id = ?").get(payload.zone_id);
+    const zoneGeometry = parseJson(zgeom?.geometry_json, null);
+    if (!isPolygonGeometry(zoneGeometry)) return json(res, 400, { error: "La zone sélectionnée n'a pas de géométrie valide." });
+    if (!pointInPolygon(position, zoneGeometry)) return json(res, 400, { error: "Les coordonnées de la plantation doivent se trouver à l'intérieur de la zone sélectionnée." });
     const now = new Date().toISOString();
     const created = await db.prepare("INSERT INTO plantations (species_id, zone_id, planted_at, quantity, notes, nickname, position_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *")
       .get(payload.species_id, payload.zone_id || null, payload.planted_at || payload.planting_date || null, payload.quantity || 1, payload.notes || null, payload.nickname || null, JSON.stringify(position), now, now);
@@ -517,10 +517,15 @@ async function handleRequest(req, res) {
     if (!existing) return json(res, 404, { error: "Plantation not found" });
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const merged = { ...toPlantationRow(existing), ...payload };
-    if (merged.position && !isPointGeometry(merged.position)) return json(res, 400, { error: "Plantation position must be a GeoJSON Point" });
+    if (!merged.position || !isPointGeometry(merged.position)) return json(res, 400, { error: "La position de la plantation doit être un Point GeoJSON valide." });
+    if (!merged.zone_id) return json(res, 400, { error: "Veuillez sélectionner une zone avant de valider les coordonnées." });
     const gardenMap = await getGardenMap();
     const gardenGeometry = parseJson(gardenMap?.geometry, null);
-    if (merged.position && gardenGeometry && !pointInPolygon(merged.position, gardenGeometry)) return json(res, 400, { error: "Plantation point must be inside garden boundary" });
+    if (merged.position && gardenGeometry && !pointInPolygon(merged.position, gardenGeometry)) return json(res, 400, { error: "Les coordonnées de la plantation doivent se trouver dans les limites du jardin." });
+    const zgeom = await db.prepare("SELECT geometry_json FROM zone_geometries WHERE zone_id = ?").get(merged.zone_id);
+    const zoneGeometry = parseJson(zgeom?.geometry_json, null);
+    if (!isPolygonGeometry(zoneGeometry)) return json(res, 400, { error: "La zone sélectionnée n'a pas de géométrie valide." });
+    if (!pointInPolygon(merged.position, zoneGeometry)) return json(res, 400, { error: "Les coordonnées de la plantation doivent se trouver à l'intérieur de la zone sélectionnée." });
 
     db.prepare("UPDATE plantations SET species_id=?, zone_id=?, planted_at=?, quantity=?, notes=?, nickname=?, position_json=?, updated_at=? WHERE id=?")
       .run(merged.species_id, merged.zone_id || null, merged.planted_at || merged.planting_date || null, merged.quantity || 1, merged.notes || null, merged.nickname || null, JSON.stringify(merged.position || null), new Date().toISOString(), id);
