@@ -422,6 +422,7 @@ button {
   justify-content: flex-start;
   gap: 2rem;
   flex-wrap: nowrap;
+  overflow: visible;
 }
 
 .zone-left-col {
@@ -438,6 +439,10 @@ button {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.zone-header-row {
+  margin-bottom: 0;
 }
 
 @media (max-width: 900px) {
@@ -472,7 +477,7 @@ button {
   border: 3px solid;
   border-radius: 8px;
   box-shadow: 0 10px 24px rgba(0,0,0,0.15);
-  overflow: hidden;
+  overflow: auto;
   background: rgba(0,0,0,0.03);
 }
 
@@ -516,6 +521,7 @@ button {
   line-height: 1;
   box-shadow: 0 6px 16px rgba(0,0,0,0.4);
   cursor: default;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, outline-color 0.16s ease;
 }
 
 /* =============== 3.b Infos zone (description, coords, nb plantes) =============== */
@@ -1201,6 +1207,7 @@ button {
 .zone-minimap-area-rotated {
   transform: rotate(90deg);
   transform-origin: center center;
+  min-height: 680px;
 }
 
 
@@ -1216,7 +1223,7 @@ button {
 
 .zone-minimap-tooltip {
   position: absolute;
-  transform: translate(-50%, calc(-100% - 8px));
+  transform: none;
   background: rgba(12, 40, 14, 0.92);
   color: #fff;
   border-radius: 6px;
@@ -1243,6 +1250,7 @@ button {
 
 .plant-photo {
   position: relative;
+  overflow: visible;
 }
 
 .plant-photo img {
