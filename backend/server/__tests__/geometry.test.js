@@ -8,6 +8,12 @@ test('validates polygon and point', () => {
   assert.equal(isPolygonGeometry(polygon), true);
   assert.equal(isPointGeometry(point), true);
   assert.equal(pointInPolygon(point, polygon), true);
+  const outside = { type: 'Point', coordinates: [20, 20] };
+  assert.equal(pointInPolygon(outside, polygon), false);
+});
+
+test('rejects invalid point geometry', () => {
+  assert.equal(isPointGeometry({ type: 'Point', coordinates: ['a', 1] }), false);
 });
 
 test('converts local coords to svg coords with y inversion', () => {
