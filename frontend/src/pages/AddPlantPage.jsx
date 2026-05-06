@@ -10,15 +10,18 @@ export default function AddPlantPage() {
 
   const [searchParams] = useSearchParams();
   const preselectedSpeciesId = searchParams.get("speciesId");
+  const preselectedZoneId = searchParams.get("zone_id") || searchParams.get("zoneId");
+  const preselectedX = searchParams.get("x");
+  const preselectedY = searchParams.get("y");
 
   const [plantForm, setPlantForm] = useState({
     species_id: preselectedSpeciesId ? String(preselectedSpeciesId) : "",
-    zone_id: "",
+    zone_id: preselectedZoneId ? String(preselectedZoneId) : "",
     nickname: "",
     planting_date: "",
     notes: "",
-    x: "",
-    y: ""
+    x: preselectedX ? String(preselectedX) : "",
+    y: preselectedY ? String(preselectedY) : ""
   });
   const [formError, setFormError] = useState("");
 
@@ -30,6 +33,15 @@ export default function AddPlantPage() {
       }));
     }
   }, [preselectedSpeciesId]);
+
+  useEffect(() => {
+    setPlantForm((prev) => ({
+      ...prev,
+      zone_id: preselectedZoneId ? String(preselectedZoneId) : prev.zone_id,
+      x: preselectedX ? String(preselectedX) : prev.x,
+      y: preselectedY ? String(preselectedY) : prev.y
+    }));
+  }, [preselectedZoneId, preselectedX, preselectedY]);
 
   const handlePlantChange = (e) => {
     const { name, value } = e.target;
