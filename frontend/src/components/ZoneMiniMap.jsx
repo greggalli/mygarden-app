@@ -2,6 +2,28 @@
 import React, { useMemo, useState } from "react";
 import { useGardenData } from "../data/GardenDataContext";
 
+function getZoneBounds(zone) {
+  const ring = zone?.geometry?.coordinates?.[0];
+  if (Array.isArray(ring) && ring.length > 0) {
+    const xs = ring.map((pt) => pt?.[0]).filter(Number.isFinite);
+    const ys = ring.map((pt) => pt?.[1]).filter(Number.isFinite);
+    if (xs.length && ys.length) {
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      return { minX, maxX, minY, maxY, w_pct: Math.max(1, maxX - minX), h_pct: Math.max(1, maxY - minY) };
+    }
+  }
+
+  if (zone?.bbox) {
+    const { x_pct, y_pct, w_pct, h_pct } = zone.bbox;
+    return { minX: x_pct, maxX: x_pct + w_pct, minY: y_pct, maxY: y_pct + h_pct, w_pct, h_pct };
+  }
+
+  return null;
+}
+
 export default function ZoneMiniMap({ zoneId, rotated = false }) {
   const { data } = useGardenData();
   const { zones, instances, species } = data;
@@ -10,18 +32,7 @@ export default function ZoneMiniMap({ zoneId, rotated = false }) {
   const plantsInZone = instances.filter((inst) => String(inst.zone_id) === zoneKey);
   const [hoverState, setHoverState] = useState(null);
 
-  const zoneBounds = useMemo(() => {
-    if (!zone?.bbox) return null;
-    const { x_pct, y_pct, w_pct, h_pct } = zone.bbox;
-    return {
-      minX: x_pct,
-      maxX: x_pct + w_pct,
-      minY: y_pct,
-      maxY: y_pct + h_pct,
-      w_pct,
-      h_pct
-    };
-  }, [zone]);
+  const zoneBounds = useMemo(() => getZoneBounds(zone), [zone]);
 
   if (!zone || !zoneBounds) {
     return (
@@ -32,8 +43,11 @@ export default function ZoneMiniMap({ zoneId, rotated = false }) {
   }
 
   function toRelativePosition(plantPos) {
-    const relX = ((plantPos.x_pct - zoneBounds.minX) / zoneBounds.w_pct) * 100;
-    const relY = ((plantPos.y_pct - zoneBounds.minY) / zoneBounds.h_pct) * 100;
+    const [x, y] = Array.isArray(plantPos?.coordinates)
+      ? plantPos.coordinates
+      : [plantPos?.x_pct, plantPos?.y_pct];
+    const relX = ((x - zoneBounds.minX) / zoneBounds.w_pct) * 100;
+    const relY = ((y - zoneBounds.minY) / zoneBounds.h_pct) * 100;
     return { x_pct: relX, y_pct: relY };
   }
 
@@ -99,7 +113,7 @@ export default function ZoneMiniMap({ zoneId, rotated = false }) {
                   type: "plant",
                   left: display.x,
                   top: display.y,
-                  label: `${plantInstance.nickname || sp?.common_name || "Plante"} ${formatCoords(plantInstance.position)}`
+                  label: `${plantInstance.nickname || sp?.common_name || "Plante"} ${formatCoords(toGlobalCoordinates(rel.x_pct, rel.y_pct))}`
                 });
               }}
               onMouseLeave={() => setHoverState(null)}

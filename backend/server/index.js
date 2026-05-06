@@ -378,21 +378,27 @@ async function handleRequest(req, res) {
     const description = payload.description !== undefined
       ? ((payload.description || "").trim() || null)
       : existing.description;
+    const existingGeometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
+    const baseGeometry = parseJson(existingGeometry?.geometry_json, {});
+
     let coordinates;
     try {
       coordinates = payload.coordinates !== undefined
         ? parseZoneCoordinates(payload.coordinates)
-        : parseCoordinatesFromGeometry(
-          parseJson(await db.prepare("SELECT geometry_json FROM zone_geometries WHERE zone_id = ?").get(id)?.geometry_json, {})
-        );
+        : parseCoordinatesFromGeometry(baseGeometry);
     } catch (error) {
       return json(res, 400, { error: error.message });
     }
-    const now = new Date().toISOString();
 
-    const existingGeometry = await db.prepare("SELECT * FROM zone_geometries WHERE zone_id = ?").get(id);
+    const geometry = payload.geometry !== undefined
+      ? payload.geometry
+      : (coordinates.length ? { type: "Polygon", coordinates: [coordinates] } : baseGeometry);
+
+    if (!isPolygonGeometry(geometry)) return json(res, 400, { error: "Zone geometry must be a GeoJSON Polygon" });
+
+    const now = new Date().toISOString();
     const mergedGeometry = {
-      ...parseJson(existingGeometry?.geometry_json, {}),
+      ...baseGeometry,
       ...geometry
     };
 

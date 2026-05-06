@@ -9,7 +9,7 @@ function formatCoordinatesInput(coordinates) {
 export default function ZoneFormPage() {
   const { zoneId } = useParams();
   const navigate = useNavigate();
-  const { data, addZone, updateZone } = useGardenData();
+  const { data, isDataReady, addZone, updateZone } = useGardenData();
   const isCreateMode = !zoneId;
 
   const zone = isCreateMode ? null : data.zones.find((item) => item.id === Number(zoneId));
@@ -17,8 +17,18 @@ export default function ZoneFormPage() {
   const [form, setForm] = useState({
     name: zone?.name || "",
     description: zone?.description || "",
-    coordinates: formatCoordinatesInput(zone?.coordinates || zone?.shape)
+    coordinates: formatCoordinatesInput(zone?.geometry?.coordinates?.[0] || zone?.coordinates || zone?.shape)
   });
+
+
+  if (!isDataReady) {
+    return (
+      <div className="species-detail-page">
+        <p>Chargement de la zone...</p>
+        <Link to="/zones" className="back-link">← Retour aux zones</Link>
+      </div>
+    );
+  }
 
   if (!isCreateMode && !zone) {
     return (
@@ -54,10 +64,17 @@ export default function ZoneFormPage() {
       return;
     }
 
+    const nextGeometry = {
+      ...(zone?.geometry || {}),
+      type: "Polygon",
+      coordinates: [coordinates]
+    };
+
     const payload = {
       name,
       description: form.description.trim(),
-      coordinates
+      coordinates,
+      geometry: nextGeometry
     };
 
     try {
