@@ -182,6 +182,47 @@ button {
   display: block;
 }
 
+
+.garden-map-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  padding: 1rem;
+}
+
+.garden-map-canvas-shell {
+  position: relative;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #f9f9f9;
+  overflow: hidden;
+}
+
+.garden-map-zone {
+  cursor: pointer;
+}
+
+.garden-map-plant-marker {
+  cursor: pointer;
+}
+
+.garden-map-plant-pin-bg {
+  fill: #ffffff;
+  stroke: #2e7d32;
+  stroke-width: 1.5;
+}
+
+.garden-map-plant-pin-icon {
+  font-size: 2.2px;
+}
+
+.garden-map-plant-hover-ring {
+  fill: none;
+  stroke: #f59e0b;
+  stroke-width: 1.5;
+}
+
 /* Zone colorée et cliquable sur la carte générale */
 .zone-overlay-abs {
   position: absolute;
@@ -252,7 +293,9 @@ button {
 /* Tooltip affichée au survol d'une zone : coordonnées + nom */
 .zone-hover-tooltip {
   position: absolute;
-  transform: translate(-50%, -100%);
+  left: 0.75rem;
+  top: 0.75rem;
+  transform: none;
   background: #1a1a1a;
   color: #fff;
   border-radius: 8px;
@@ -519,7 +562,9 @@ button {
 /* Pins dans la mini-map locale */
 .zone-minimap-pin {
   position: absolute;
-  transform: translate(-50%, -100%);
+  left: 0.75rem;
+  top: 0.75rem;
+  transform: none;
   background: #fff;
   border: 2px solid #2e7d32;
   border-radius: 999px;

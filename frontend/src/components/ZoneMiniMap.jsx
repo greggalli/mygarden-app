@@ -40,35 +40,35 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
           style={{ cursor: "pointer" }}
         >
           <g transform={rotationTransform}>
-            <polygon points={polygonToSvgPoints(gardenGeometry, resolvedHeight)} fill="rgba(34,197,94,0.05)" stroke="rgba(22,163,74,0.35)" strokeWidth="0.6" />
-            <polygon points={polygonToSvgPoints(zoneGeometry, resolvedHeight)} fill="rgba(59,130,246,0.25)" stroke="rgb(30,64,175)" strokeWidth="0.8" />
+            <polygon points={polygonToSvgPoints(gardenGeometry, resolvedHeight)} fill="rgba(34,197,94,0.05)" stroke="rgba(22,163,74,0.35)" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+            <polygon points={polygonToSvgPoints(zoneGeometry, resolvedHeight)} fill="rgba(59,130,246,0.25)" stroke="rgb(30,64,175)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
             {plantsInZone.map((plantInstance) => {
               if (plantInstance.position?.type !== "Point") return null;
               const [x, y] = toSvgPoint(plantInstance.position.coordinates, resolvedHeight);
               const sp = species.find((s) => s.id === plantInstance.species_id);
+              const isHighlighted = highlightedPlantId === plantInstance.id;
               return (
-                <circle
+                <g
                   key={plantInstance.id}
-                  cx={x}
-                  cy={y}
-                  r={highlightedPlantId === plantInstance.id ? "1.4" : "1"}
-                  fill={highlightedPlantId === plantInstance.id ? "#c62828" : "#15803d"}
-                  stroke="#ffffff"
-                  strokeWidth="0.25"
+                  transform={`translate(${x}, ${y})`}
+                  className="garden-map-plant-marker"
                   onClick={(event) => {
                     event.stopPropagation();
                     navigate(`/plants/${plantInstance.id}`);
                   }}
                 >
+                  <circle r={isHighlighted ? "1.45" : "1.2"} className="garden-map-plant-pin-bg" vectorEffect="non-scaling-stroke" />
+                  <text textAnchor="middle" dominantBaseline="central" className="garden-map-plant-pin-icon" aria-hidden="true">🌱</text>
+                  {isHighlighted && <circle r="2" className="garden-map-plant-hover-ring" vectorEffect="non-scaling-stroke" />}
                   <title>{`${plantInstance.nickname || sp?.common_name || "Plante"} (${plantInstance.position.coordinates.join(", ")})`}</title>
-                </circle>
+                </g>
               );
             })}
 
-            {debug && zoneGeometry.coordinates[0]?.map((pt, idx) => {
+            {debug && <g pointerEvents="none">{zoneGeometry.coordinates[0]?.map((pt, idx) => {
               const [vx, vy] = toSvgPoint(pt, resolvedHeight);
               return <circle key={`zone-v-${idx}`} cx={vx} cy={vy} r="0.7" fill="#1d4ed8" />;
-            })}
+            })}</g>}
 
             {debug && (
               <rect
@@ -78,7 +78,7 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
                 height={viewMeta.bbox.height}
                 fill="none"
                 stroke="#f97316"
-                strokeWidth="0.4"
+                strokeWidth="1" vectorEffect="non-scaling-stroke"
                 strokeDasharray="1 1"
               />
             )}
