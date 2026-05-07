@@ -2,9 +2,10 @@ import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
 import { isGardenDebug } from "../utils/gardenDebug";
-import { getZoneViewBox, parseGeometry, polygonToSvgPoints, resolveGardenDimensions, toSvgPoint } from "../utils/gardenMapUtils";
+import { getZoneViewBox, markerUnitsFromPixels, parseGeometry, polygonToSvgPoints, resolveGardenDimensions, svgEventToLocalPoint, toSvgPoint } from "../utils/gardenMapUtils";
+import { pointInPolygon } from "../utils/geojson";
 
-export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantId = null }) {
+export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantId = null, onMapHover, onMapClick }) {
   const navigate = useNavigate();
   const { data } = useGardenData();
   const { zones, instances, species, gardenMap } = data;
@@ -28,15 +29,26 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
   }
 
   const rotationTransform = rotated ? `rotate(90 ${resolvedWidth / 2} ${resolvedHeight / 2})` : undefined;
+  const svgRef = React.useRef(null);
+  const viewBox = { width: viewMeta.bbox.width, height: viewMeta.bbox.height };
+  const markerR = markerUnitsFromPixels(svgRef.current, viewBox, 7);
+  const markerIcon = markerUnitsFromPixels(svgRef.current, viewBox, 12);
 
   return (
     <div className="zone-minimap-card">
       <div className={`zone-minimap-area zone-minimap-area-only ${rotated ? "zone-minimap-area-rotated" : ""}`}>
         <svg
+          ref={svgRef}
           viewBox={viewMeta.viewBox}
           preserveAspectRatio="xMidYMid meet"
           className="h-full w-full"
-          onClick={() => navigate(`/zones/${zone.id}/edit`)}
+          onPointerMove={(event) => onMapHover?.(svgEventToLocalPoint(event, svgRef.current, resolvedHeight))}
+          onPointerLeave={() => onMapHover?.(null)}
+          onClick={(event) => {
+            const point = svgEventToLocalPoint(event, svgRef.current, resolvedHeight);
+            if (!point || !pointInPolygon({ type: "Point", coordinates: point }, zoneGeometry)) return;
+            onMapClick?.(point, zone);
+          }}
           style={{ cursor: "pointer" }}
         >
           <g transform={rotationTransform}>
@@ -57,9 +69,9 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
                     navigate(`/plants/${plantInstance.id}`);
                   }}
                 >
-                  <circle r={isHighlighted ? "1.45" : "1.2"} className="garden-map-plant-pin-bg" vectorEffect="non-scaling-stroke" />
-                  <text textAnchor="middle" dominantBaseline="central" className="garden-map-plant-pin-icon" aria-hidden="true">🌱</text>
-                  {isHighlighted && <circle r="2" className="garden-map-plant-hover-ring" vectorEffect="non-scaling-stroke" />}
+                  <circle r={isHighlighted ? markerR + 1 : markerR} className="garden-map-plant-pin-bg" vectorEffect="non-scaling-stroke" />
+                  <text textAnchor="middle" dominantBaseline="central" className="garden-map-plant-pin-icon" style={{ fontSize: markerIcon }} aria-hidden="true">🌱</text>
+                  {isHighlighted && <circle r={markerR + 2} className="garden-map-plant-hover-ring" vectorEffect="non-scaling-stroke" />}
                   <title>{`${plantInstance.nickname || sp?.common_name || "Plante"} (${plantInstance.position.coordinates.join(", ")})`}</title>
                 </g>
               );
