@@ -11,6 +11,8 @@ export default function ZoneDetailPage() {
   const { zones, instances, species } = data;
   const [isRotated, setIsRotated] = useState(false);
   const [hoveredPlantId, setHoveredPlantId] = useState(null);
+  const [hoverPoint, setHoverPoint] = useState(null);
+  const [mapMessage, setMapMessage] = useState("");
 
   const routeZoneId = String(zoneId ?? "").trim();
 
@@ -78,7 +80,9 @@ export default function ZoneDetailPage() {
 
         <p className="zone-header-description">{zone.description || "—"}</p>
 
-        <ZoneMiniMap zoneId={zone.id} rotated={isRotated} highlightedPlantId={hoveredPlantId} />
+        <ZoneMiniMap zoneId={zone.id} rotated={isRotated} highlightedPlantId={hoveredPlantId} onMapHover={setHoverPoint} onMapClick={(point, clickedZone) => { if (!clickedZone) { setMapMessage("Sélectionnez un point à l'intérieur d'une zone pour créer une plantation."); return; } const [x,y]=point; navigate(`/add-plant?zoneId=${clickedZone.id}&x=${x.toFixed(1)}&y=${y.toFixed(1)}`); }} />
+        <div className="garden-map-coords">{hoverPoint ? `Coordonnées : X: ${hoverPoint[0].toFixed(1)}, Y: ${hoverPoint[1].toFixed(1)}` : "Coordonnées : —"}</div>
+        {mapMessage ? <div className="garden-map-msg">{mapMessage}</div> : null}
       </div>
 
       <div className="zone-right-col">

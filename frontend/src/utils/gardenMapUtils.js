@@ -56,3 +56,21 @@ export function resolveGardenDimensions(gardenMap, geometry) {
   const resolvedHeight = Number.isFinite(height) && height > 0 ? height : (bbox?.height || 0);
   return { width, height, resolvedWidth, resolvedHeight, bbox };
 }
+
+export function svgEventToLocalPoint(event, svg, gardenHeight) {
+  if (!svg) return null;
+  const point = svg.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const svgPoint = point.matrixTransform(ctm.inverse());
+  return [svgPoint.x, gardenHeight - svgPoint.y];
+}
+
+export function markerUnitsFromPixels(svg, viewBox, px) {
+  if (!svg) return px;
+  const rect = svg.getBoundingClientRect();
+  if (!rect.width || !viewBox?.width) return px;
+  return (px / rect.width) * viewBox.width;
+}
