@@ -1,69 +1,25 @@
-// src/components/ZoneMiniMap.jsx
-import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
-
-function getZoneBounds(zone) {
-  const ring = zone?.geometry?.coordinates?.[0];
-  if (Array.isArray(ring) && ring.length > 0) {
-    const xs = ring.map((pt) => pt?.[0]).filter(Number.isFinite);
-    const ys = ring.map((pt) => pt?.[1]).filter(Number.isFinite);
-    if (xs.length && ys.length) {
-      const minX = Math.min(...xs);
-      const maxX = Math.max(...xs);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
-      return { minX, maxX, minY, maxY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
-    }
-  }
-
-  if (zone?.bbox) {
-    const { x_pct, y_pct, w_pct, h_pct } = zone.bbox;
-    return { minX: x_pct, maxX: x_pct + w_pct, minY: y_pct, maxY: y_pct + h_pct, width: w_pct, height: h_pct };
-  }
-
-  return null;
-}
+import { isGardenDebug } from "../utils/gardenDebug";
+import { getZoneViewBox, parseGeometry, polygonToSvgPoints, resolveGardenDimensions, toSvgPoint } from "../utils/gardenMapUtils";
 
 export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantId = null }) {
   const navigate = useNavigate();
   const { data } = useGardenData();
-  const { zones, instances, species } = data;
+  const { zones, instances, species, gardenMap } = data;
   const zoneKey = String(zoneId);
   const zone = zones.find((z) => String(z.id) === zoneKey);
   const plantsInZone = instances.filter((inst) => String(inst.zone_id) === zoneKey);
-  const [hoverState, setHoverState] = useState(null);
-  const [tooltipStyle, setTooltipStyle] = useState(null);
-  const mapRef = useRef(null);
-  const tooltipRef = useRef(null);
+  const debug = isGardenDebug();
 
-  const zoneBounds = useMemo(() => getZoneBounds(zone), [zone]);
+  const gardenGeometry = parseGeometry(gardenMap?.geometry);
+  const { resolvedWidth, resolvedHeight } = resolveGardenDimensions(gardenMap, gardenGeometry);
+  const zoneGeometry = parseGeometry(zone?.geometry);
 
-  useLayoutEffect(() => {
-    if (!hoverState || !mapRef.current || !tooltipRef.current) {
-      setTooltipStyle(null);
-      return;
-    }
-    const container = mapRef.current.getBoundingClientRect();
-    const tooltip = tooltipRef.current.getBoundingClientRect();
-    const anchorX = (hoverState.left / 100) * container.width;
-    const anchorY = (hoverState.top / 100) * container.height;
-    const horizontalPadding = 12;
-    const verticalPadding = 12;
-    const offset = 12;
+  const viewMeta = useMemo(() => getZoneViewBox(zoneGeometry, resolvedHeight), [zoneGeometry, resolvedHeight]);
 
-    let leftPx = anchorX - tooltip.width / 2;
-    leftPx = Math.max(horizontalPadding, Math.min(leftPx, container.width - tooltip.width - horizontalPadding));
-
-    let topPx = anchorY - tooltip.height - offset;
-    if (topPx < verticalPadding) {
-      topPx = Math.min(anchorY + offset, container.height - tooltip.height - verticalPadding);
-    }
-
-    setTooltipStyle({ left: `${leftPx}px`, top: `${topPx}px` });
-  }, [hoverState]);
-
-  if (!zone || !zoneBounds) {
+  if (!zone || !zoneGeometry || !viewMeta) {
     return (
       <div className="zone-minimap-card">
         <div className="zone-minimap-inner zone-minimap-error">Zone introuvable</div>
@@ -71,128 +27,75 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
     );
   }
 
-  function toRelativePosition(plantPos) {
-    const [x, y] = Array.isArray(plantPos?.coordinates)
-      ? plantPos.coordinates
-      : [plantPos?.x_pct, plantPos?.y_pct];
-    const relX = ((x - zoneBounds.minX) / zoneBounds.width) * 100;
-    const relY = ((y - zoneBounds.minY) / zoneBounds.height) * 100;
-    return { x_pct: relX, y_pct: relY };
-  }
-
-  function toGlobalCoordinates(relX, relY) {
-    return {
-      x: zoneBounds.minX + (relX / 100) * zoneBounds.width,
-      y: zoneBounds.minY + (relY / 100) * zoneBounds.height
-    };
-  }
-
-  function displayToRelative(displayX, displayY) {
-    if (!rotated) return { x: displayX, y: displayY };
-    const centeredX = displayX - 50;
-    const centeredY = displayY - 50;
-    return { x: centeredY + 50, y: 50 - centeredX };
-  }
-
-  function relativeToDisplay(relativeX, relativeY) {
-    if (!rotated) return { x: relativeX, y: relativeY };
-    const centeredX = relativeX - 50;
-    const centeredY = relativeY - 50;
-    return { x: 50 - centeredY, y: centeredX + 50 };
-  }
-
-  function formatCoords(coords) {
-    return `(${coords.x.toFixed(2)}, ${coords.y.toFixed(2)})`;
-  }
-
-  function handleMapHover(event) {
-    if (event.target.closest(".zone-minimap-pin")) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const displayX = ((event.clientX - rect.left) / rect.width) * 100;
-    const displayY = ((event.clientY - rect.top) / rect.height) * 100;
-    const relative = displayToRelative(displayX, displayY);
-    const globalCoords = toGlobalCoordinates(relative.x, relative.y);
-
-    setHoverState({
-      type: "coords",
-      left: displayX,
-      top: displayY,
-      label: formatCoords(globalCoords)
-    });
-  }
-
-  function handleMapClick(event) {
-    if (event.target.closest(".zone-minimap-pin")) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const displayX = ((event.clientX - rect.left) / rect.width) * 100;
-    const displayY = ((event.clientY - rect.top) / rect.height) * 100;
-    const relative = displayToRelative(displayX, displayY);
-    const globalCoords = toGlobalCoordinates(relative.x, relative.y);
-    const shouldCreate = window.confirm("Créer une nouvelle plantation ?");
-    if (!shouldCreate) return;
-    const params = new URLSearchParams({ zone_id: String(zone.id), x: globalCoords.x.toFixed(2), y: globalCoords.y.toFixed(2) });
-    navigate(`/add-plant?${params.toString()}`);
-  }
+  const rotationTransform = rotated ? `rotate(90 ${resolvedWidth / 2} ${resolvedHeight / 2})` : undefined;
 
   return (
     <div className="zone-minimap-card">
-      <div
-        ref={mapRef}
-        className={`zone-minimap-area zone-minimap-area-only ${rotated ? "zone-minimap-area-rotated" : ""}`}
-        onMouseMove={handleMapHover}
-        onMouseLeave={() => setHoverState(null)}
-        onClick={handleMapClick}
-      >
-        {plantsInZone.map((plantInstance) => {
-          const sp = species.find((s) => s.id === plantInstance.species_id);
-          const rel = toRelativePosition(plantInstance.position);
-          const displayPos = relativeToDisplay(rel.x_pct, rel.y_pct);
+      <div className={`zone-minimap-area zone-minimap-area-only ${rotated ? "zone-minimap-area-rotated" : ""}`}>
+        <svg
+          viewBox={viewMeta.viewBox}
+          preserveAspectRatio="xMidYMid meet"
+          className="h-full w-full"
+          onClick={() => navigate(`/zones/${zone.id}/edit`)}
+          style={{ cursor: "pointer" }}
+        >
+          <g transform={rotationTransform}>
+            <polygon points={polygonToSvgPoints(gardenGeometry, resolvedHeight)} fill="rgba(34,197,94,0.05)" stroke="rgba(22,163,74,0.35)" strokeWidth="0.6" />
+            <polygon points={polygonToSvgPoints(zoneGeometry, resolvedHeight)} fill="rgba(59,130,246,0.25)" stroke="rgb(30,64,175)" strokeWidth="0.8" />
+            {plantsInZone.map((plantInstance) => {
+              if (plantInstance.position?.type !== "Point") return null;
+              const [x, y] = toSvgPoint(plantInstance.position.coordinates, resolvedHeight);
+              const sp = species.find((s) => s.id === plantInstance.species_id);
+              return (
+                <circle
+                  key={plantInstance.id}
+                  cx={x}
+                  cy={y}
+                  r={highlightedPlantId === plantInstance.id ? "1.4" : "1"}
+                  fill={highlightedPlantId === plantInstance.id ? "#c62828" : "#15803d"}
+                  stroke="#ffffff"
+                  strokeWidth="0.25"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigate(`/plants/${plantInstance.id}`);
+                  }}
+                >
+                  <title>{`${plantInstance.nickname || sp?.common_name || "Plante"} (${plantInstance.position.coordinates.join(", ")})`}</title>
+                </circle>
+              );
+            })}
 
-          return (
-            <button
-              key={plantInstance.id}
-              type="button"
-              className="zone-minimap-pin"
-              style={{
-                left: `${displayPos.x}%`,
-                top: `${displayPos.y}%`,
-                outline: highlightedPlantId === plantInstance.id ? "3px solid #c62828" : "none",
-                outlineOffset: highlightedPlantId === plantInstance.id ? "2px" : "0",
-                boxShadow: highlightedPlantId === plantInstance.id ? "0 0 0 5px rgba(198,40,40,0.35), 0 8px 18px rgba(0,0,0,0.45)" : "0 6px 16px rgba(0,0,0,0.4)",
-                transform: highlightedPlantId === plantInstance.id ? "translate(-50%, -100%) scale(1.2)" : "translate(-50%, -100%)"
-              }}
-              onMouseEnter={() => {
-                const coords = toGlobalCoordinates(rel.x_pct, rel.y_pct);
-                setHoverState({
-                  type: "plant",
-                  left: displayPos.x,
-                  top: displayPos.y,
-                  label: `${plantInstance.nickname || sp?.common_name || "Plante"} ${formatCoords(coords)}`,
-                  image: sp?.photos?.[0] || null
-                });
-              }}
-              onMouseLeave={() => setHoverState(null)}
-              onClick={(event) => {
-                event.stopPropagation();
-                navigate(`/plants/${plantInstance.id}`);
-              }}
-            >
-              <span className={`zone-minimap-pin-icon ${rotated ? "zone-minimap-pin-icon-keep-upright" : ""}`}>🌱</span>
-            </button>
-          );
-        })}
+            {debug && zoneGeometry.coordinates[0]?.map((pt, idx) => {
+              const [vx, vy] = toSvgPoint(pt, resolvedHeight);
+              return <circle key={`zone-v-${idx}`} cx={vx} cy={vy} r="0.7" fill="#1d4ed8" />;
+            })}
 
-        {hoverState ? (
-          <div
-            ref={tooltipRef}
-            className={`zone-minimap-tooltip ${hoverState.type === "coords" ? "zone-minimap-tooltip-small" : ""}`}
-            style={tooltipStyle || { left: `${hoverState.left}%`, top: `${hoverState.top}%` }}
-          >
-            <div>{hoverState.label}</div>
-            {hoverState.image ? <img src={hoverState.image} alt="" className="zone-minimap-tooltip-image" /> : null}
-          </div>
-        ) : null}
+            {debug && (
+              <rect
+                x={viewMeta.bbox.minX}
+                y={resolvedHeight - viewMeta.bbox.maxY}
+                width={viewMeta.bbox.width}
+                height={viewMeta.bbox.height}
+                fill="none"
+                stroke="#f97316"
+                strokeWidth="0.4"
+                strokeDasharray="1 1"
+              />
+            )}
+          </g>
+        </svg>
       </div>
+
+      {debug && (
+        <pre style={{ marginTop: 8, fontSize: 12, overflowX: "auto" }}>
+          {JSON.stringify({
+            zoneCoordinates: zoneGeometry.coordinates?.[0],
+            bbox: viewMeta.bbox,
+            viewBox: viewMeta.viewBox,
+            svgPoints: polygonToSvgPoints(zoneGeometry, resolvedHeight)
+          }, null, 2)}
+        </pre>
+      )}
     </div>
   );
 }
