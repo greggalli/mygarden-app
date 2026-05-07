@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
-import ZoneMiniMap from "../components/ZoneMiniMap";
+import GardenMapCanvas from "../components/GardenMapCanvas";
 import HoverPreviewImage from "../components/HoverPreviewImage";
 
 export default function ZoneDetailPage() {
@@ -9,7 +9,6 @@ export default function ZoneDetailPage() {
   const navigate = useNavigate();
   const { data, isDataReady } = useGardenData();
   const { zones, instances, species } = data;
-  const [isRotated, setIsRotated] = useState(false);
   const [hoveredPlantId, setHoveredPlantId] = useState(null);
   const [hoverPoint, setHoverPoint] = useState(null);
   const [mapMessage, setMapMessage] = useState("");
@@ -48,6 +47,11 @@ export default function ZoneDetailPage() {
     });
   }
 
+
+  const plantationsForMap = useMemo(() => plantsInZone.map((inst) => {
+    const sp = species.find((item) => item.id === inst.species_id);
+    return { ...inst, species_name: sp?.common_name, species_photo: sp?.photos?.[0], zone_name: zone?.name };
+  }), [plantsInZone, species, zone?.name]);
   if (!zone) {
     return (
       <div className="plant-detail-page">
@@ -62,25 +66,31 @@ export default function ZoneDetailPage() {
       <div className="zone-left-col">
         <div className="plants-title-row zone-header-row">
           <h2 className="section-title">{zone.name}</h2>
-          <div className="zone-title-actions">
-            <button
-              type="button"
-              className="icon-btn"
-              title="Tourner la carte de 90° vers la droite"
-              aria-label="Tourner la carte de 90° vers la droite"
-              onClick={() => setIsRotated((value) => !value)}
-            >
-              ↻90°
-            </button>
-            <button type="button" className="btn-secondary" onClick={() => navigate(`/zones/${zone.id}/edit`)}>
-              Modifier
-            </button>
-          </div>
+          
         </div>
 
         <p className="zone-header-description">{zone.description || "—"}</p>
 
-        <ZoneMiniMap zoneId={zone.id} rotated={isRotated} highlightedPlantId={hoveredPlantId} onMapHover={setHoverPoint} onMapClick={(point, clickedZone) => { if (!clickedZone) { setMapMessage("Sélectionnez un point à l'intérieur d'une zone pour créer une plantation."); return; } const [x,y]=point; navigate(`/add-plant?zoneId=${clickedZone.id}&x=${x.toFixed(1)}&y=${y.toFixed(1)}`); }} />
+        <div className="garden-map-card">
+          <GardenMapCanvas
+            gardenMap={data.gardenMap}
+            zones={[zone]}
+            plantations={plantationsForMap}
+            mode="zone-detail"
+            selectedZoneId={zone.id}
+            fitToZoneId={zone.id}
+            onMapHover={setHoverPoint}
+            onPlantationClick={(p) => navigate(`/plants/${p.id}`)}
+            onMapClick={(point, clickedZone) => {
+              if (!clickedZone) {
+                setMapMessage("Sélectionnez un point à l'intérieur de la zone pour créer une plantation.");
+                return;
+              }
+              const [x, y] = point;
+              navigate(`/add-plant?zoneId=${clickedZone.id}&x=${x.toFixed(1)}&y=${y.toFixed(1)}`);
+            }}
+          />
+        </div>
         <div className="garden-map-coords">{hoverPoint ? `Coordonnées : X: ${hoverPoint[0].toFixed(1)}, Y: ${hoverPoint[1].toFixed(1)}` : "Coordonnées : —"}</div>
         {mapMessage ? <div className="garden-map-msg">{mapMessage}</div> : null}
       </div>
