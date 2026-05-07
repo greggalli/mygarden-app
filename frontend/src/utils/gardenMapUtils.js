@@ -10,6 +10,32 @@ export function parseGeometry(value) {
   return value;
 }
 
+export function toSvgPoint(point, gardenHeight) {
+  const [x, y] = point;
+  return [x, gardenHeight - y];
+}
+
+export function polygonToSvgPoints(polygon, gardenHeight) {
+  if (polygon?.type !== "Polygon" || !Array.isArray(polygon.coordinates?.[0])) return "";
+  return polygon.coordinates[0].map((point) => {
+    const [sx, sy] = toSvgPoint(point, gardenHeight);
+    return `${sx},${sy}`;
+  }).join(" ");
+}
+
+export function getZoneViewBox(zoneGeometry, gardenHeight, paddingRatio = 0.15) {
+  const bbox = getPolygonBBox(zoneGeometry);
+  if (!bbox) return null;
+  const svgMinY = gardenHeight - bbox.maxY;
+  const pad = Math.max(bbox.width, bbox.height) * paddingRatio || 1;
+  return {
+    bbox,
+    svgMinX: bbox.minX,
+    svgMinY,
+    viewBox: [bbox.minX - pad, svgMinY - pad, bbox.width + pad * 2, bbox.height + pad * 2].join(" ")
+  };
+}
+
 export function getPolygonBBox(polygon) {
   const ring = polygon?.coordinates?.[0] ?? [];
   const xs = ring.map(([x]) => x).filter(Number.isFinite);
