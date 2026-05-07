@@ -60,6 +60,10 @@ export default function MapPage() {
             gardenMap={gardenMap}
             zones={zones}
             plantations={plantationsForMap}
+            mode="garden"
+            showGardenBoundary
+            showZoneLabels
+            showPlantations
             onZoneClick={(zone) => navigate(`/zones/${zone.id}`)}
             onPlantationClick={(p) => navigate(`/plants/${p.id}`)}
             onMapHover={setHoverPoint}
