@@ -441,6 +441,31 @@ button {
   gap: 1rem;
 }
 
+.zone-right-col-collapsed {
+  flex: 0 1 110px;
+  min-width: 110px;
+}
+
+.plants-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.plants-collapse-toggle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plants-collapse-toggle span {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
 .zone-header-row {
   margin-bottom: 0;
 }
@@ -602,6 +627,11 @@ button {
   grid-template-columns: 1fr;
 }
 
+.plants-grid-collapsed {
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
 .plant-card {
   background: #fff;
   border: 1px solid #ddd;
@@ -612,6 +642,17 @@ button {
   align-items: flex-start;
   padding: 0.75rem;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.plant-card-collapsed {
+  width: fit-content;
+  padding: 0.35rem;
+  gap: 0;
+}
+
+.plant-card-collapsed .plant-photo {
+  width: 48px;
+  height: 48px;
 }
 
 .plant-card:hover {

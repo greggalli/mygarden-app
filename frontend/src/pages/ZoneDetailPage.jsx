@@ -11,6 +11,7 @@ export default function ZoneDetailPage() {
   const { zones, instances, species } = data;
   const [isRotated, setIsRotated] = useState(false);
   const [hoveredPlantId, setHoveredPlantId] = useState(null);
+  const [isPlantsListCollapsed, setIsPlantsListCollapsed] = useState(false);
 
   const routeZoneId = String(zoneId ?? "").trim();
 
@@ -81,18 +82,31 @@ export default function ZoneDetailPage() {
         <ZoneMiniMap zoneId={zone.id} rotated={isRotated} highlightedPlantId={hoveredPlantId} />
       </div>
 
-      <div className="zone-right-col">
-        <h2 className="section-title">Plantations dans la zone ({plantsInZone.length})</h2>
+      <div className={`zone-right-col ${isPlantsListCollapsed ? "zone-right-col-collapsed" : ""}`}>
+        <div className="plants-title-row">
+          <h2 className="section-title">
+            {isPlantsListCollapsed ? "Plantations" : "Plantations dans la zone"} ({plantsInZone.length})
+          </h2>
+          <button
+            type="button"
+            className="icon-btn plants-collapse-toggle"
+            aria-label={isPlantsListCollapsed ? "Afficher les détails des plantations" : "Réduire la liste des plantations"}
+            title={isPlantsListCollapsed ? "Afficher les détails des plantations" : "Réduire la liste des plantations"}
+            onClick={() => setIsPlantsListCollapsed((value) => !value)}
+          >
+            <span aria-hidden="true">{isPlantsListCollapsed ? "⤢" : "⌃"}</span>
+          </button>
+        </div>
         {plantsInZone.length === 0 ? (
           <div className="zone-detail-empty">Aucune plantation dans cette zone.</div>
         ) : (
-          <div className="plants-grid plants-grid-single-col">
+          <div className={`plants-grid plants-grid-single-col ${isPlantsListCollapsed ? "plants-grid-collapsed" : ""}`}>
             {plantsInZone.map((inst) => {
               const sp = species.find((s) => s.id === inst.species_id);
               return (
                 <article
                   key={inst.id}
-                  className="plant-card plant-card-clickable"
+                  className={`plant-card plant-card-clickable ${isPlantsListCollapsed ? "plant-card-collapsed" : ""}`}
                   onMouseEnter={() => setHoveredPlantId(inst.id)}
                   onMouseLeave={() => setHoveredPlantId(null)}
                   onClick={() => navigate(`/plants/${inst.id}`)}
@@ -114,13 +128,15 @@ export default function ZoneDetailPage() {
                   ) : (
                     <div className="plant-photo instance-row-thumb-fallback" aria-hidden="true">🌿</div>
                   )}
-                  <div className="plant-info">
-                    <h4>{inst.nickname}</h4>
-                    <p>
-                      {sp?.common_name || "Espèce inconnue"}
-                      {inst.planting_date ? ` • ${inst.planting_date}` : ""}
-                    </p>
-                  </div>
+                  {!isPlantsListCollapsed && (
+                    <div className="plant-info">
+                      <h4>{inst.nickname}</h4>
+                      <p>
+                        {sp?.common_name || "Espèce inconnue"}
+                        {inst.planting_date ? ` • ${inst.planting_date}` : ""}
+                      </p>
+                    </div>
+                  )}
                 </article>
               );
             })}
