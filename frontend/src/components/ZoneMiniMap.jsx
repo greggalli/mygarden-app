@@ -3,6 +3,8 @@ import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
 
+const VIEWBOX_PADDING_RATIO = 0.08;
+
 function getZoneBounds(zone) {
   const ring = zone?.geometry?.coordinates?.[0];
   if (Array.isArray(ring) && ring.length > 0) {
@@ -38,6 +40,18 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
   const tooltipRef = useRef(null);
 
   const zoneBounds = useMemo(() => getZoneBounds(zone), [zone]);
+  const zoneRing = zone?.geometry?.coordinates?.[0] ?? [];
+
+  const viewBox = useMemo(() => {
+    if (!zoneBounds) return null;
+    const padX = Math.max(1, zoneBounds.width * VIEWBOX_PADDING_RATIO);
+    const padY = Math.max(1, zoneBounds.height * VIEWBOX_PADDING_RATIO);
+    const minX = zoneBounds.minX - padX;
+    const maxY = zoneBounds.maxY + padY;
+    const width = zoneBounds.width + padX * 2;
+    const height = zoneBounds.height + padY * 2;
+    return { minX, maxY, width, height };
+  }, [zoneBounds]);
 
   useLayoutEffect(() => {
     if (!hoverState || !mapRef.current || !tooltipRef.current) {
@@ -75,15 +89,19 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
     const [x, y] = Array.isArray(plantPos?.coordinates)
       ? plantPos.coordinates
       : [plantPos?.x_pct, plantPos?.y_pct];
-    const relX = ((x - zoneBounds.minX) / zoneBounds.width) * 100;
-    const relY = ((y - zoneBounds.minY) / zoneBounds.height) * 100;
+    if (!viewBox) return { x_pct: 0, y_pct: 0 };
+    const relX = ((x - viewBox.minX) / viewBox.width) * 100;
+    const relY = ((viewBox.maxY - y) / viewBox.height) * 100;
     return { x_pct: relX, y_pct: relY };
   }
 
   function toGlobalCoordinates(relX, relY) {
+    if (!viewBox) {
+      return { x: zoneBounds.minX, y: zoneBounds.minY };
+    }
     return {
-      x: zoneBounds.minX + (relX / 100) * zoneBounds.width,
-      y: zoneBounds.minY + (relY / 100) * zoneBounds.height
+      x: viewBox.minX + (relX / 100) * viewBox.width,
+      y: viewBox.maxY - (relY / 100) * viewBox.height
     };
   }
 
@@ -143,6 +161,21 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
         onMouseLeave={() => setHoverState(null)}
         onClick={handleMapClick}
       >
+        {Array.isArray(zoneRing) && zoneRing.length > 0 ? (
+          <svg className="zone-minimap-shape" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <polygon
+              points={zoneRing
+                .map(([x, y]) => {
+                  const rel = toRelativePosition({ coordinates: [x, y] });
+                  return `${rel.x_pct},${rel.y_pct}`;
+                })
+                .join(" ")}
+              fill="rgba(255,255,255,0.18)"
+              stroke="rgba(14,68,21,0.9)"
+              strokeWidth="0.9"
+            />
+          </svg>
+        ) : null}
         {plantsInZone.map((plantInstance) => {
           const sp = species.find((s) => s.id === plantInstance.species_id);
           const rel = toRelativePosition(plantInstance.position);
