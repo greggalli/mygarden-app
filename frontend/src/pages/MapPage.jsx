@@ -5,17 +5,13 @@ import GardenMapCanvas from "../components/GardenMapCanvas";
 import GardenMapErrorBoundary from "../components/GardenMapErrorBoundary";
 import { useGardenData } from "../data/GardenDataContext";
 import { getBBoxFromCoords, isGardenDebug, validatePointGeometry, validatePolygonGeometry } from "../utils/gardenDebug";
-import { pointInPolygon } from "../utils/geojson";
 
 export default function MapPage() {
   const { data } = useGardenData();
   const navigate = useNavigate();
-  const { zones, instances, species, gardenMap } = data;
+  const { zones, instances, gardenMap } = data;
   const debug = isGardenDebug();
   const [renderError, setRenderError] = React.useState(null);
-  const [hoverPoint, setHoverPoint] = React.useState(null);
-  const [hoverPlant, setHoverPlant] = React.useState(null);
-  const [mapMessage, setMapMessage] = React.useState("");
 
   React.useEffect(() => {
     if (!debug) return;
@@ -45,12 +41,6 @@ export default function MapPage() {
     });
   }, [data, debug, gardenMap, instances, zones]);
 
-  const plantationsForMap = instances.map((inst) => {
-    const sp = species.find((item) => item.id === inst.species_id);
-    const zone = zones.find((z) => z.id === inst.zone_id);
-    return { ...inst, species_name: sp?.common_name, species_photo: sp?.photos?.[0], zone_name: zone?.name };
-  });
-
   return (
     <div className="zones-page-2col">
       <div className="zones-left-col">
@@ -59,28 +49,11 @@ export default function MapPage() {
           <GardenMapCanvas
             gardenMap={gardenMap}
             zones={zones}
-            plantations={plantationsForMap}
-            mode="garden"
-            showGardenBoundary
-            showZoneLabels
-            showPlantations
+            plantations={instances}
             onZoneClick={(zone) => navigate(`/zones/${zone.id}`)}
             onPlantationClick={(p) => navigate(`/plants/${p.id}`)}
-            onMapHover={setHoverPoint}
-            onPlantationHover={(plant) => setHoverPlant(plant)}
-            onMapClick={(point, zone) => {
-              if (!zone || !pointInPolygon({ type: "Point", coordinates: point }, zone.geometry)) {
-                setMapMessage("Sélectionnez un point à l'intérieur d'une zone pour créer une plantation.");
-                return;
-              }
-              const [x, y] = point;
-              navigate(`/add-plant?zoneId=${zone.id}&x=${x.toFixed(1)}&y=${y.toFixed(1)}`);
-            }}
           />
         </GardenMapErrorBoundary>
-        {hoverPoint && <div className="garden-map-coords">Coordonnées : X: {hoverPoint[0].toFixed(1)}, Y: {hoverPoint[1].toFixed(1)}</div>}
-        {hoverPlant && <div className="zone-hover-tooltip plant-hover-tooltip"><div className="plant-tooltip-image-wrap">{hoverPlant.species_photo ? <img src={hoverPlant.species_photo} alt={hoverPlant.species_name || "Espèce"} className="plant-tooltip-image" /> : <div className="plant-tooltip-image-fallback">🌿</div>}</div><div><strong>Plantation</strong>: {hoverPlant.nickname || "—"}<br /><strong>Espèce</strong>: {hoverPlant.species_name || "—"}<br /><strong>Zone</strong>: {hoverPlant.zone_name || "—"}<br />{hoverPlant.planting_date ? <><strong>Planté le</strong>: {hoverPlant.planting_date}</> : null}</div></div>}
-        {mapMessage && <div className="garden-map-msg">{mapMessage}</div>}
         {debug && (
           <div style={{ marginTop: 8, fontSize: 13, padding: 8, border: "1px solid #d00", borderRadius: 6, background: "rgba(255,255,255,0.9)" }}>
             <strong>Garden Debug</strong>
