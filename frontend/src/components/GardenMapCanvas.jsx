@@ -1,119 +1,113 @@
-import React, { useMemo, useRef, useState } from "react";
-import {
-  findZoneContainingPoint,
-  getFittedViewBoxForZone,
-  markerUnitsFromPixels,
-  parseGeometry,
-  pointToSvgCircle,
-  polygonToSvgPoints,
-  resolveGardenDimensions,
-  svgPointerEventToLocalPoint,
-  toSvgPoint
-} from "../utils/gardenMapUtils";
+import React from "react";
+import { getBBoxFromCoords, isGardenDebug, validatePointGeometry, validatePolygonGeometry } from "../utils/gardenDebug";
+import { parseGeometry, resolveGardenDimensions } from "../utils/gardenMapUtils";
 
-function PlantMarker({ x, y, label, radius, iconSize, isHovered, onEnter, onLeave, onClick }) {
+function isPolygon(geometry) {
+  return geometry?.type === "Polygon" && Array.isArray(geometry.coordinates?.[0]);
+}
+
+function pointToSvg([x, y], width, height) {
+  return [x, height - y];
+}
+
+function polygonPoints(geometry, width, height) {
+  if (!isPolygon(geometry)) return "";
+  return geometry.coordinates[0].map((pt) => pointToSvg(pt, width, height).join(",")).join(" ");
+}
+
+export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [], onZoneClick, onPlantationClick }) {
+  const debug = isGardenDebug();
+  const geometry = parseGeometry(gardenMap?.geometry);
+  const gardenValidation = validatePolygonGeometry(geometry, "garden");
+  const { width, height, resolvedWidth, resolvedHeight } = resolveGardenDimensions(gardenMap, geometry);
+
+  const errors = [];
+  if (!gardenValidation.valid) errors.push(gardenValidation.error);
+  if (!(Number.isFinite(resolvedWidth) && resolvedWidth > 0)) errors.push("[GardenDebug] Invalid garden width");
+  if (!(Number.isFinite(resolvedHeight) && resolvedHeight > 0)) errors.push("[GardenDebug] Invalid garden height");
+  const unavailable = errors.length > 0;
+
+  if (debug && unavailable) {
+    console.warn("[GardenMap] unavailable", {
+      garden: gardenMap,
+      geometry,
+      geometryType: geometry?.type ?? null,
+      width,
+      height,
+      resolvedWidth,
+      resolvedHeight,
+      errors
+    });
+  }
+
+  if (unavailable) {
+    return (
+      <div>
+        <div>Carte indisponible.</div>
+        {debug && <pre style={{ marginTop: 8, fontSize: 12 }}>{JSON.stringify({ garden: gardenMap, geometryType: geometry?.type ?? null, width, height, resolvedWidth, resolvedHeight, errors }, null, 2)}</pre>}
+      </div>
+    );
+  }
+
+  if (debug) {
+    console.log("[GardenDebug] Transform:", { gardenWidth: resolvedWidth, gardenHeight: resolvedHeight });
+    console.log("[GardenDebug] Garden BBox:", gardenValidation.bbox);
+    if (!zones.length) console.warn("[GardenDebug] No zones found");
+    if (!plantations.length) console.warn("[GardenDebug] No plantations found");
+  }
+
+  const [ox, oy] = pointToSvg([0, 0], resolvedWidth, resolvedHeight);
+  const [maxX, maxY] = pointToSvg([resolvedWidth, resolvedHeight], resolvedWidth, resolvedHeight);
+
   return (
-    <g
-      transform={`translate(${x}, ${y})`}
-      className="garden-map-plant-marker"
-      onPointerEnter={onEnter}
-      onPointerLeave={onLeave}
-      onClick={onClick}
-      role="button"
-      aria-label={label}
-      tabIndex={0}
-    >
-      <circle r={radius} className="garden-map-plant-pin-bg" vectorEffect="non-scaling-stroke" />
-      <text textAnchor="middle" dominantBaseline="central" className="garden-map-plant-pin-icon" style={{ fontSize: iconSize }} aria-hidden="true">🌱</text>
-      {isHovered ? <circle r={radius + 2} className="garden-map-plant-hover-ring" vectorEffect="non-scaling-stroke" /> : null}
-    </g>
+    <svg viewBox={`0 0 ${resolvedWidth} ${resolvedHeight}`} preserveAspectRatio="xMidYMid meet" className="h-full w-full min-h-[300px]" style={{ border: "1px solid #ddd", borderRadius: 8 }}>
+      <polygon points={polygonPoints(geometry, resolvedWidth, resolvedHeight)} fill="rgba(34,197,94,0.08)" stroke="rgb(22,163,74)" strokeWidth={Math.max(resolvedWidth, resolvedHeight) * 0.01} />
+      {debug && (
+        <g>
+          <polygon points={polygonPoints(geometry, resolvedWidth, resolvedHeight)} fill="none" stroke="red" strokeWidth={Math.max(resolvedWidth, resolvedHeight) * 0.012} />
+          <line x1={0} y1={oy} x2={resolvedWidth} y2={oy} stroke="#f00" strokeWidth="0.2" strokeDasharray="0.8 0.8" />
+          <line x1={ox} y1={0} x2={ox} y2={resolvedHeight} stroke="#f00" strokeWidth="0.2" strokeDasharray="0.8 0.8" />
+          <rect x={Math.min(ox, maxX)} y={Math.min(oy, maxY)} width={Math.abs(maxX - ox)} height={Math.abs(maxY - oy)} fill="none" stroke="red" strokeWidth="0.3" />
+          <text x={ox + 1} y={Math.max(1, oy - 1)} fontSize="2.1" fill="red">(0,0)</text>
+          {geometry.coordinates[0].map((pt, idx) => {
+            const [vx, vy] = pointToSvg(pt, resolvedWidth, resolvedHeight);
+            return <circle key={`g-v-${idx}`} cx={vx} cy={vy} r="0.6" fill="red" />;
+          })}
+        </g>
+      )}
+      {zones.map((zone, idx) => {
+        const zoneGeometry = parseGeometry(zone.geometry);
+        const zoneCheck = validatePolygonGeometry(zoneGeometry, `zone:${zone.id}`);
+        if (debug) {
+          if (!zoneCheck.valid) console.error(zoneCheck.error, zoneGeometry);
+          else console.log("[GardenDebug] Zone geometry:", { id: zone.id, name: zone.name, points: zoneCheck.points, bbox: zoneCheck.bbox });
+        }
+        if (!isPolygon(zoneGeometry)) return null;
+        const ring = zoneGeometry.coordinates[0];
+        const [cx, cy] = pointToSvg(ring[0], resolvedWidth, resolvedHeight);
+        return (
+          <g key={zone.id} onClick={() => onZoneClick?.(zone)} style={{ cursor: "pointer" }}>
+            <polygon points={polygonPoints(zoneGeometry, resolvedWidth, resolvedHeight)} fill={debug ? "rgba(0,0,255,0.1)" : `hsl(${(idx * 77) % 360} 70% 75% / 0.5)`} stroke={debug ? "blue" : "#355"} strokeWidth="0.4" />
+            <text x={cx} y={cy} fontSize="2.8" fill="#123">{zone.name}</text>
+            {debug && ring.map((pt, vIdx) => {
+              const [vx, vy] = pointToSvg(pt, resolvedWidth, resolvedHeight);
+              return <circle key={`z-${zone.id}-${vIdx}`} cx={vx} cy={vy} r="0.45" fill="blue" />;
+            })}
+          </g>
+        );
+      })}
+      {plantations.map((p) => {
+        const pointCheck = validatePointGeometry(p.position, `plantation:${p.id}`);
+        if (debug && !pointCheck.valid) console.error(pointCheck.error, p.position);
+        if (p.position?.type !== "Point") return null;
+        const [x, y] = pointToSvg(p.position.coordinates, resolvedWidth, resolvedHeight);
+        if (debug) {
+          console.log("[GardenDebug] Plantation transformed:", { id: p.id, source: p.position.coordinates, transformed: [x, y], bbox: getBBoxFromCoords([p.position.coordinates]) });
+        }
+        return <circle key={p.id} cx={x} cy={y} r={debug ? "4" : "1.1"} fill="green" onClick={() => onPlantationClick?.(p)} style={{ cursor: "pointer" }} />;
+      })}
+    </svg>
   );
 }
 
-export default function GardenMapCanvas({
-  gardenMap,
-  zones = [],
-  plantations = [],
-  selectedZoneId,
-  mode = "garden",
-  fitToZoneId,
-  showGardenBoundary = true,
-  showZoneLabels = true,
-  showPlantations = true,
-  onZoneClick,
-  onZoneHover,
-  onPlantationClick,
-  onPlantationHover,
-  onMapClick,
-  onMapHover
-}) {
-  const svgRef = useRef(null);
-  const [hoveredZoneId, setHoveredZoneId] = useState(null);
-  const [hoveredPlantId, setHoveredPlantId] = useState(null);
-
-  const gardenGeometry = parseGeometry(gardenMap?.geometry);
-  const { resolvedWidth, resolvedHeight } = resolveGardenDimensions(gardenMap, gardenGeometry);
-  const activeZoneId = fitToZoneId || selectedZoneId;
-  const fitZone = zones.find((z) => String(z.id) === String(activeZoneId));
-  const fitViewBox = fitZone ? getFittedViewBoxForZone(parseGeometry(fitZone.geometry), resolvedHeight, 0.15) : null;
-  const viewBox = fitViewBox || `0 0 ${resolvedWidth} ${resolvedHeight}`;
-
-  const markerRadius = markerUnitsFromPixels(svgRef.current, fitViewBox ? { width: Number(viewBox.split(" ")[2]) } : { width: resolvedWidth }, 10);
-  const markerIconSize = markerUnitsFromPixels(svgRef.current, fitViewBox ? { width: Number(viewBox.split(" ")[2]) } : { width: resolvedWidth }, 13);
-
-  const zoneLayers = useMemo(() => zones.map((zone, idx) => ({ zone, idx, geometry: parseGeometry(zone.geometry) })), [zones]);
-
-  return (
-    <div className="garden-map-canvas-shell">
-      <svg
-        ref={svgRef}
-        viewBox={viewBox}
-        preserveAspectRatio="xMidYMid meet"
-        className="h-full w-full min-h-[320px]"
-        onPointerMove={(event) => onMapHover?.(svgPointerEventToLocalPoint(event, svgRef.current, resolvedHeight))}
-        onPointerLeave={() => onMapHover?.(null)}
-        onClick={(event) => {
-          const point = svgPointerEventToLocalPoint(event, svgRef.current, resolvedHeight);
-          if (!point) return;
-          const zone = findZoneContainingPoint(point, zones);
-          onMapClick?.(point, zone || undefined);
-        }}
-      >
-        <rect x="0" y="0" width={resolvedWidth} height={resolvedHeight} fill="#f8faf8" pointerEvents="none" />
-        {showGardenBoundary && gardenGeometry ? <polygon points={polygonToSvgPoints(gardenGeometry, resolvedHeight)} fill="rgba(34,197,94,0.08)" stroke="#4b7f56" strokeWidth="1.25" vectorEffect="non-scaling-stroke" pointerEvents="none" /> : null}
-
-        {zoneLayers.map(({ zone, idx, geometry }) => {
-          if (!geometry) return null;
-          const isHovered = hoveredZoneId === zone.id;
-          const isSelected = String(selectedZoneId) === String(zone.id);
-          const ringStart = geometry.coordinates?.[0]?.[0];
-          const labelPoint = ringStart ? toSvgPoint(ringStart, resolvedHeight) : [0, 0];
-          return (
-            <g
-              key={zone.id}
-              className="garden-map-zone"
-              onPointerEnter={() => { setHoveredZoneId(zone.id); onZoneHover?.(zone); }}
-              onPointerLeave={() => { setHoveredZoneId(null); onZoneHover?.(null); }}
-              onClick={(event) => {
-                event.stopPropagation();
-                const point = svgPointerEventToLocalPoint(event, svgRef.current, resolvedHeight);
-                onZoneClick?.(zone, point);
-              }}
-            >
-              <polygon points={polygonToSvgPoints(geometry, resolvedHeight)} fill={isSelected ? "rgba(56, 189, 248, 0.28)" : isHovered ? `hsl(${(idx * 61) % 360} 70% 75% / 0.45)` : `hsl(${(idx * 61) % 360} 55% 74% / 0.25)`} stroke={isSelected ? "#0f766e" : "#43635a"} strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
-              {showZoneLabels ? <text x={labelPoint[0]} y={labelPoint[1]} className="garden-map-zone-label" pointerEvents="none">{zone.name}</text> : null}
-            </g>
-          );
-        })}
-
-        {showPlantations ? plantations.map((p) => {
-          if (p.position?.type !== "Point") return null;
-          const { cx, cy } = pointToSvgCircle(p.position.coordinates, resolvedHeight);
-          const isHovered = hoveredPlantId === p.id;
-          return <PlantMarker key={p.id} x={cx} y={cy} radius={markerRadius} iconSize={markerIconSize} label={p.nickname || p.name || "Plante"} isHovered={isHovered} onEnter={(event) => { event.stopPropagation(); setHoveredPlantId(p.id); onPlantationHover?.(p, event); }} onLeave={(event) => { event.stopPropagation(); setHoveredPlantId(null); onPlantationHover?.(null); }} onClick={(event) => { event.stopPropagation(); onPlantationClick?.(p); }} />;
-        }) : null}
-      </svg>
-      {mode === "garden" && hoveredZoneId ? <div className="zone-hover-tooltip">{zones.find((z) => z.id === hoveredZoneId)?.name}</div> : null}
-    </div>
-  );
-}
+export { pointToSvg };
