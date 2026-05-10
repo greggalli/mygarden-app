@@ -12,7 +12,7 @@ export default function ZoneCard({ zone, onEdit, onDelete }) {
 
   return (
     <article
-      className="zone-card zone-list-card"
+      className="zone-card zone-list-card zone-row zone-row-clickable"
       onClick={openDetails}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -23,14 +23,16 @@ export default function ZoneCard({ zone, onEdit, onDelete }) {
       tabIndex={0}
     >
       <div className="zone-list-line1">
-        <h3>{zone.name}</h3>
-        <p className="zone-desc">{zone.description || "—"}</p>
+        <h3 className="zone-list-title">
+          {zone.name}{" "}
+          <span className="zone-list-title-meta">
+            ({plantCount} plantation{plantCount > 1 ? "s" : ""})
+          </span>
+        </h3>
       </div>
 
       <div className="zone-list-line2">
-        <div className="zone-list-count">
-          {plantCount} plantation{plantCount > 1 ? "s" : ""}
-        </div>
+        <p className="zone-desc zone-list-description">{zone.description || "—"}</p>
         <div className="zone-list-actions">
           <button
             type="button"

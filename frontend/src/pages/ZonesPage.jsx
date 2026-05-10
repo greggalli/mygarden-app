@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
 import ZoneCard from "../components/ZoneCard";
@@ -7,6 +7,12 @@ export default function ZonesPage() {
   const navigate = useNavigate();
   const { data, deleteZone } = useGardenData();
   const { zones } = data;
+
+  const totalZones = zones.length;
+  const totalPlantations = useMemo(
+    () => zones.reduce((sum, zone) => sum + (zone.planting_count ?? 0), 0),
+    [zones]
+  );
 
   const handleDelete = async (zone) => {
     const hasPlantings = (zone.planting_count || 0) > 0;
@@ -38,6 +44,15 @@ export default function ZonesPage() {
             >
               Ajouter une zone
             </button>
+          </div>
+          <div className="species-stats">
+            <span>
+              {totalZones} zone{totalZones > 1 ? "s" : ""}
+            </span>
+            <span>•</span>
+            <span>
+              {totalPlantations} plantation{totalPlantations > 1 ? "s" : ""}
+            </span>
           </div>
         </div>
       </div>
