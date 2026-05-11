@@ -180,13 +180,18 @@ button {
 
 .garden-map-canvas-wrap {
   width: 100%;
+  border: 1px solid #6fa871;
+  border-radius: 8px;
+  background: #eef8eb;
+  padding: 0.4rem;
 }
 
 .garden-map-canvas {
   width: 100%;
+  height: auto;
   min-height: 520px;
-  border: 1px solid #6fa871;
-  border-radius: 8px;
+  border: 0;
+  border-radius: 6px;
   background: #eef8eb;
   display: block;
 }
