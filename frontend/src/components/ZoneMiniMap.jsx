@@ -78,11 +78,7 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
   }, [hoverState]);
 
   if (!zone || !zoneBounds) {
-    return (
-      <div className="zone-minimap-card">
-        <div className="zone-minimap-inner zone-minimap-error">Zone introuvable</div>
-      </div>
-    );
+    return <div className="zone-minimap-inner zone-minimap-error">Zone introuvable</div>;
   }
 
   function toRelativePosition(plantPos) {
@@ -153,7 +149,6 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
   }
 
   return (
-    <div className="zone-minimap-card">
       <div
         ref={mapRef}
         className={`zone-minimap-area zone-minimap-area-only ${rotated ? "zone-minimap-area-rotated" : ""}`}
@@ -170,9 +165,9 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
                   return `${rel.x_pct},${rel.y_pct}`;
                 })
                 .join(" ")}
-              fill="rgba(255,255,255,0.18)"
-              stroke="rgba(14,68,21,0.9)"
-              strokeWidth="0.9"
+              fill="#9ccc9b"
+              stroke="#2e7d32"
+              strokeWidth="0.6"
             />
           </svg>
         ) : null}
@@ -226,6 +221,5 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
           </div>
         ) : null}
       </div>
-    </div>
   );
 }
