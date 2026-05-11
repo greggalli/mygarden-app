@@ -482,6 +482,15 @@ button {
   gap: 0.35rem;
 }
 
+.zone-right-col-collapsed .plants-title-row {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+.zone-plants-heading {
+  white-space: nowrap;
+}
+
 .plants-collapse-toggle {
   width: 28px;
   height: 28px;
@@ -498,10 +507,20 @@ button {
 
 .zone-header-row {
   margin-bottom: 0;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.zone-title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .zone-header-description {
-  margin: -0.25rem 0 0.5rem;
+  margin: 0;
   font-size: 0.8rem;
   line-height: 1.4;
   color: #555;
@@ -522,11 +541,6 @@ button {
 /* =============== 3.a Mini-map zone zoomée (pas tout le jardin) =============== */
 
 .zone-minimap-card {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-  padding: 1rem;
   width: 100%;
   max-width: 800px;
 }
@@ -536,11 +550,11 @@ button {
   position: relative;
   width: 100%;
   min-height: 520px;
-  border: 3px solid;
+  border: 1px solid #6fa871;
   border-radius: 8px;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.15);
+  box-shadow: none;
   overflow: auto;
-  background: rgba(0,0,0,0.03);
+  background: #eef8eb;
 }
 
 .zone-minimap-header-chip {
@@ -1285,8 +1299,8 @@ button {
 }
 
 .zone-minimap-area-only {
-  background: #6da56f;
-  border: 1px solid #1b5e20;
+  background: #eef8eb;
+  border: 1px solid #6fa871;
   box-shadow: none;
 }
 

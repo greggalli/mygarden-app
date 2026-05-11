@@ -60,7 +60,10 @@ export default function ZoneDetailPage() {
     <div className="zone-page-2col">
       <div className="zone-left-col">
         <div className="plants-title-row zone-header-row">
-          <h2 className="section-title">{zone.name}</h2>
+          <div className="zone-title-line">
+            <h2 className="section-title">{zone.name}</h2>
+            {zone.description ? <p className="zone-header-description">{zone.description}</p> : null}
+          </div>
           <div className="zone-title-actions">
             <button
               type="button"
@@ -77,15 +80,13 @@ export default function ZoneDetailPage() {
           </div>
         </div>
 
-        <p className="zone-header-description">{zone.description || "—"}</p>
-
         <ZoneMiniMap zoneId={zone.id} rotated={isRotated} highlightedPlantId={hoveredPlantId} />
       </div>
 
       <div className={`zone-right-col ${isPlantsListCollapsed ? "zone-right-col-collapsed" : ""}`}>
         <div className="plants-title-row">
           <h2 className="section-title">
-            {isPlantsListCollapsed ? "Plantations" : "Plantations dans la zone"} ({plantsInZone.length})
+            <span className="zone-plants-heading">{isPlantsListCollapsed ? "Plantations" : "Plantations dans la zone"} ({plantsInZone.length})</span>
           </h2>
           <button
             type="button"
@@ -122,11 +123,11 @@ export default function ZoneDetailPage() {
                     <HoverPreviewImage
                       src={sp.photos[0]}
                       alt={sp?.common_name || inst.nickname}
-                      className="plant-photo"
-                      previewClassName="plant-photo-preview"
+                      className="instance-row-thumb species-thumb-hover-wrap"
+                      previewClassName="thumb-hover-preview"
                     />
                   ) : (
-                    <div className="plant-photo instance-row-thumb-fallback" aria-hidden="true">🌿</div>
+                    <div className="instance-row-thumb instance-row-thumb-fallback" aria-hidden="true">🌿</div>
                   )}
                   {!isPlantsListCollapsed && (
                     <div className="plant-info">
