@@ -122,6 +122,7 @@ button {
   justify-content: flex-start;
   gap: 2rem;
   flex-wrap: nowrap;
+  overflow: visible;
 }
 
 .zones-left-col {
@@ -130,6 +131,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  overflow: visible;
 }
 
 .zones-right-col {
@@ -174,6 +176,25 @@ button {
   background: #f9f9f9;
   overflow: hidden;
   box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.garden-map-canvas-wrap {
+  width: 100%;
+}
+
+.garden-map-canvas {
+  width: 100%;
+  min-height: 520px;
+  border: 1px solid #6fa871;
+  border-radius: 8px;
+  background: #eef8eb;
+  display: block;
+}
+
+.garden-map-hover-readout {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: #444;
 }
 
 .garden-map-image {

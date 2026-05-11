@@ -15,7 +15,7 @@ function polygonPoints(geometry, width, height) {
   return geometry.coordinates[0].map((pt) => pointToSvg(pt, width, height).join(",")).join(" ");
 }
 
-export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [], onZoneClick, onPlantationClick }) {
+export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [], highlightedZoneId = null, onZoneClick, onPlantationClick }) {
   const debug = isGardenDebug();
   const geometry = parseGeometry(gardenMap?.geometry);
   const gardenValidation = validatePolygonGeometry(geometry, "garden");
@@ -58,9 +58,28 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
 
   const [ox, oy] = pointToSvg([0, 0], resolvedWidth, resolvedHeight);
   const [maxX, maxY] = pointToSvg([resolvedWidth, resolvedHeight], resolvedWidth, resolvedHeight);
+  const [hoverState, setHoverState] = React.useState(null);
+
+  function getLocalCoords(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratioX = (event.clientX - rect.left) / rect.width;
+    const ratioY = (event.clientY - rect.top) / rect.height;
+    return { x: ratioX * resolvedWidth, y: (1 - ratioY) * resolvedHeight };
+  }
 
   return (
-    <svg viewBox={`0 0 ${resolvedWidth} ${resolvedHeight}`} preserveAspectRatio="xMidYMid meet" className="h-full w-full min-h-[300px]" style={{ border: "1px solid #ddd", borderRadius: 8 }}>
+    <div className="garden-map-canvas-wrap">
+      <svg
+        viewBox={`0 0 ${resolvedWidth} ${resolvedHeight}`}
+        preserveAspectRatio="xMidYMid meet"
+        className="garden-map-canvas"
+        onMouseMove={(event) => {
+          if (hoverState?.type === "zone") return;
+          const coords = getLocalCoords(event);
+          setHoverState({ type: "coords", x: coords.x, y: coords.y });
+        }}
+        onMouseLeave={() => setHoverState(null)}
+      >
       <polygon points={polygonPoints(geometry, resolvedWidth, resolvedHeight)} fill="rgba(34,197,94,0.08)" stroke="rgb(22,163,74)" strokeWidth={Math.max(resolvedWidth, resolvedHeight) * 0.01} />
       {debug && (
         <g>
@@ -85,9 +104,17 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
         if (!isPolygon(zoneGeometry)) return null;
         const ring = zoneGeometry.coordinates[0];
         const [cx, cy] = pointToSvg(ring[0], resolvedWidth, resolvedHeight);
+        const isHighlighted = String(highlightedZoneId) === String(zone.id);
         return (
           <g key={zone.id} onClick={() => onZoneClick?.(zone)} style={{ cursor: "pointer" }}>
-            <polygon points={polygonPoints(zoneGeometry, resolvedWidth, resolvedHeight)} fill={debug ? "rgba(0,0,255,0.1)" : `hsl(${(idx * 77) % 360} 70% 75% / 0.5)`} stroke={debug ? "blue" : "#355"} strokeWidth="0.4" />
+            <polygon
+              points={polygonPoints(zoneGeometry, resolvedWidth, resolvedHeight)}
+              fill={debug ? "rgba(0,0,255,0.1)" : "rgba(156, 204, 155, 0.72)"}
+              stroke={isHighlighted ? "#c62828" : (debug ? "blue" : "#2e7d32")}
+              strokeWidth={isHighlighted ? "1.1" : "0.6"}
+              onMouseEnter={() => setHoverState({ type: "zone", name: zone.name })}
+              onMouseLeave={() => setHoverState(null)}
+            />
             <text x={cx} y={cy} fontSize="2.8" fill="#123">{zone.name}</text>
             {debug && ring.map((pt, vIdx) => {
               const [vx, vy] = pointToSvg(pt, resolvedWidth, resolvedHeight);
@@ -106,7 +133,13 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
         }
         return <circle key={p.id} cx={x} cy={y} r={debug ? "4" : "1.1"} fill="green" onClick={() => onPlantationClick?.(p)} style={{ cursor: "pointer" }} />;
       })}
-    </svg>
+      </svg>
+      <div className="garden-map-hover-readout">
+        {hoverState?.type === "zone"
+          ? hoverState.name
+          : `Coordonnées : X: ${(hoverState?.x ?? 0).toFixed(1)}, Y: ${(hoverState?.y ?? 0).toFixed(1)}`}
+      </div>
+    </div>
   );
 }
 
