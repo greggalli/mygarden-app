@@ -717,6 +717,37 @@ button {
   justify-content: center;
 }
 
+
+.zone-plant-thumb-wrap {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.zone-plant-thumb {
+  width: 100%;
+  height: 100%;
+}
+
+.zone-plant-thumb-wrap .species-thumb-hover-wrap > img {
+  transition: transform 0.2s ease;
+}
+
+.plant-card:hover .zone-plant-thumb-wrap .species-thumb-hover-wrap > img {
+  transform: scale(1.05);
+}
+
+.plant-card-collapsed .zone-plant-thumb-wrap {
+  width: 48px;
+  height: 48px;
+}
+
+.zone-plant-thumb-fallback {
+  min-height: 0;
+  max-height: none;
+}
 .plant-photo-placeholder {
   width: 100%;
   height: 100%;
