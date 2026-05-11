@@ -12,6 +12,7 @@ export default function MapPage() {
   const { zones, instances, gardenMap } = data;
   const debug = isGardenDebug();
   const [renderError, setRenderError] = React.useState(null);
+  const [hoveredZoneIdFromList, setHoveredZoneIdFromList] = React.useState(null);
 
   React.useEffect(() => {
     if (!debug) return;
@@ -50,6 +51,7 @@ export default function MapPage() {
             gardenMap={gardenMap}
             zones={zones}
             plantations={instances}
+            highlightedZoneId={hoveredZoneIdFromList}
             onZoneClick={(zone) => navigate(`/zones/${zone.id}`)}
             onPlantationClick={(p) => navigate(`/plants/${p.id}`)}
           />
@@ -68,14 +70,22 @@ export default function MapPage() {
       <div className="zones-right-col">
         <div className="plants-title-row">
           <h2 className="section-title">Zones</h2>
-          <Link to="/zones" className="btn-secondary">Gérer les zones</Link>
         </div>
 
         <div className="zones-list">
           {zones.map((zone) => (
-            <Link key={zone.id} to={`/zones/${zone.id}`} className="zone-card zone-card-rich">
+            <Link
+              key={zone.id}
+              to={`/zones/${zone.id}`}
+              className="zone-card zone-card-rich"
+              onMouseEnter={() => setHoveredZoneIdFromList(zone.id)}
+              onMouseLeave={() => setHoveredZoneIdFromList(null)}
+            >
               <div className="zone-card-header">
-                <h3>{zone.name}</h3>
+                <h3>
+                  {zone.name}{" "}
+                  <span className="zone-list-title-meta">({zone.planting_count ?? 0} plantation{(zone.planting_count ?? 0) > 1 ? "s" : ""})</span>
+                </h3>
               </div>
               <p className="zone-desc">{zone.description || "—"}</p>
             </Link>
