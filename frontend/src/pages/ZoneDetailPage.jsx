@@ -120,14 +120,18 @@ export default function ZoneDetailPage() {
                   tabIndex={0}
                 >
                   {sp?.photos?.[0] ? (
-                    <HoverPreviewImage
-                      src={sp.photos[0]}
-                      alt={sp?.common_name || inst.nickname}
-                      className="instance-row-thumb species-thumb-hover-wrap"
-                      previewClassName="thumb-hover-preview"
-                    />
+                    <div className="zone-plant-thumb-wrap" aria-hidden="true">
+                      <HoverPreviewImage
+                        src={sp.photos[0]}
+                        alt={sp?.common_name || inst.nickname}
+                        className="instance-row-thumb species-thumb-hover-wrap zone-plant-thumb"
+                        previewClassName="thumb-hover-preview"
+                      />
+                    </div>
                   ) : (
-                    <div className="instance-row-thumb instance-row-thumb-fallback" aria-hidden="true">🌿</div>
+                    <div className="zone-plant-thumb-wrap" aria-hidden="true">
+                      <div className="instance-row-thumb instance-row-thumb-fallback zone-plant-thumb-fallback">🌿</div>
+                    </div>
                   )}
                   {!isPlantsListCollapsed && (
                     <div className="plant-info">
