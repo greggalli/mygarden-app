@@ -58,7 +58,8 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
 
   const [ox, oy] = pointToSvg([0, 0], resolvedWidth, resolvedHeight);
   const [maxX, maxY] = pointToSvg([resolvedWidth, resolvedHeight], resolvedWidth, resolvedHeight);
-  const [hoverState, setHoverState] = React.useState(null);
+  const [hoveredZone, setHoveredZone] = React.useState(null);
+  const [hoveredPoint, setHoveredPoint] = React.useState(null);
 
   function getLocalCoords(event) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -69,16 +70,18 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
 
   return (
     <div className="garden-map-canvas-wrap">
-      <svg
-        viewBox={`0 0 ${resolvedWidth} ${resolvedHeight}`}
+      <svg viewBox={`0 0 ${resolvedWidth} ${resolvedHeight}`}
         preserveAspectRatio="xMidYMid meet"
         className="garden-map-canvas"
-        onMouseMove={(event) => {
-          if (hoverState?.type === "zone") return;
+        onPointerMove={(event) => {
+          if (hoveredZone) return;
           const coords = getLocalCoords(event);
-          setHoverState({ type: "coords", x: coords.x, y: coords.y });
+          setHoveredPoint(coords);
         }}
-        onMouseLeave={() => setHoverState(null)}
+        onPointerLeave={() => {
+          setHoveredZone(null);
+          setHoveredPoint(null);
+        }}
       >
       <polygon points={polygonPoints(geometry, resolvedWidth, resolvedHeight)} fill="rgba(34,197,94,0.08)" stroke="rgb(22,163,74)" strokeWidth={Math.max(resolvedWidth, resolvedHeight) * 0.01} />
       {debug && (
@@ -112,10 +115,10 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
               fill={debug ? "rgba(0,0,255,0.1)" : "rgba(156, 204, 155, 0.72)"}
               stroke={isHighlighted ? "#c62828" : (debug ? "blue" : "#2e7d32")}
               strokeWidth={isHighlighted ? "1.1" : "0.6"}
-              onMouseEnter={() => setHoverState({ type: "zone", name: zone.name })}
-              onMouseLeave={() => setHoverState(null)}
+              onPointerEnter={() => setHoveredZone(zone)}
+              onPointerLeave={() => setHoveredZone(null)}
             />
-            <text x={cx} y={cy} fontSize="2.8" fill="#123">{zone.name}</text>
+            <text x={cx} y={cy} fontSize="2.8" fill="#123" pointerEvents="none">{zone.name}</text>
             {debug && ring.map((pt, vIdx) => {
               const [vx, vy] = pointToSvg(pt, resolvedWidth, resolvedHeight);
               return <circle key={`z-${zone.id}-${vIdx}`} cx={vx} cy={vy} r="0.45" fill="blue" />;
@@ -135,9 +138,11 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
       })}
       </svg>
       <div className="garden-map-hover-readout">
-        {hoverState?.type === "zone"
-          ? hoverState.name
-          : `Coordonnées : X: ${(hoverState?.x ?? 0).toFixed(1)}, Y: ${(hoverState?.y ?? 0).toFixed(1)}`}
+        {hoveredZone
+          ? hoveredZone.name
+          : hoveredPoint
+            ? `Coordonnées : X: ${hoveredPoint.x.toFixed(1)}, Y: ${hoveredPoint.y.toFixed(1)}`
+            : "Coordonnées : X: 0.0, Y: 0.0"}
       </div>
     </div>
   );
