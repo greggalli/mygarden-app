@@ -47,10 +47,15 @@ export default function MapPage() {
       <div className="zones-left-col">
         <h2 className="section-title">Plan général du jardin</h2>
         <GardenMapErrorBoundary onError={setRenderError}>
+          {/* Alignment note:
+             - Landing page reuses the same map interaction/rendering contract as zone-detail map patterns.
+             - Only mode differs: garden uses full map, while zone detail fits by zone id. */}
           <GardenMapCanvas
             gardenMap={gardenMap}
             zones={zones}
             plantations={instances}
+            mode="garden"
+            fitToZoneId={undefined}
             highlightedZoneId={hoveredZoneIdFromList}
             onZoneClick={(zone) => navigate(`/zones/${zone.id}`)}
             onPlantationClick={(p) => navigate(`/plants/${p.id}`)}
