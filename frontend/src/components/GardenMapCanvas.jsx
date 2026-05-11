@@ -16,6 +16,10 @@ function polygonPoints(geometry, width, height) {
 }
 
 export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [], highlightedZoneId = null, onZoneClick, onPlantationClick }) {
+  // Implementation note (landing map vs zone-detail map alignment):
+  // - Landing map keeps full-garden viewBox (0..garden.width/height), while ZoneMiniMap fits to a single zone.
+  // - Interaction contract mirrors ZoneMiniMap: a single hover state drives either zone tooltip OR coordinate tooltip.
+  // - Non-interactive overlays use pointer-events none so polygons remain hover/click targets.
   const debug = isGardenDebug();
   const geometry = parseGeometry(gardenMap?.geometry);
   const gardenValidation = validatePolygonGeometry(geometry, "garden");
@@ -58,8 +62,7 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
 
   const [ox, oy] = pointToSvg([0, 0], resolvedWidth, resolvedHeight);
   const [maxX, maxY] = pointToSvg([resolvedWidth, resolvedHeight], resolvedWidth, resolvedHeight);
-  const [hoveredZone, setHoveredZone] = React.useState(null);
-  const [hoveredPoint, setHoveredPoint] = React.useState(null);
+  const [hoverState, setHoverState] = React.useState(null);
 
   function getLocalCoords(event) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -74,16 +77,15 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
         preserveAspectRatio="xMidYMid meet"
         className="garden-map-canvas"
         onPointerMove={(event) => {
-          if (hoveredZone) return;
+          if (hoverState?.type === "zone") return;
           const coords = getLocalCoords(event);
-          setHoveredPoint(coords);
+          setHoverState({ type: "coords", coords, x: event.clientX, y: event.clientY });
         }}
         onPointerLeave={() => {
-          setHoveredZone(null);
-          setHoveredPoint(null);
+          setHoverState(null);
         }}
       >
-      <polygon points={polygonPoints(geometry, resolvedWidth, resolvedHeight)} fill="rgba(34,197,94,0.08)" stroke="rgb(22,163,74)" strokeWidth={Math.max(resolvedWidth, resolvedHeight) * 0.01} />
+      <polygon points={polygonPoints(geometry, resolvedWidth, resolvedHeight)} fill="rgba(34,197,94,0.08)" stroke="rgb(22,163,74)" strokeWidth="0.6" pointerEvents="none" />
       {debug && (
         <g>
           <polygon points={polygonPoints(geometry, resolvedWidth, resolvedHeight)} fill="none" stroke="red" strokeWidth={Math.max(resolvedWidth, resolvedHeight) * 0.012} />
@@ -115,8 +117,11 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
               fill={debug ? "rgba(0,0,255,0.1)" : "rgba(156, 204, 155, 0.72)"}
               stroke={isHighlighted ? "#c62828" : (debug ? "blue" : "#2e7d32")}
               strokeWidth={isHighlighted ? "1.1" : "0.6"}
-              onPointerEnter={() => setHoveredZone(zone)}
-              onPointerLeave={() => setHoveredZone(null)}
+              onPointerEnter={(event) => setHoverState({ type: "zone", zone, x: event.clientX, y: event.clientY })}
+              onPointerMove={(event) => setHoverState((prev) => (prev?.type === "zone" && String(prev?.zone?.id) === String(zone.id)
+                ? { ...prev, x: event.clientX, y: event.clientY }
+                : prev))}
+              onPointerLeave={() => setHoverState(null)}
             />
             <text x={cx} y={cy} fontSize="2.8" fill="#123" pointerEvents="none">{zone.name}</text>
             {debug && ring.map((pt, vIdx) => {
@@ -137,11 +142,18 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
         return <circle key={p.id} cx={x} cy={y} r={debug ? "4" : "1.1"} fill="green" onClick={() => onPlantationClick?.(p)} style={{ cursor: "pointer" }} />;
       })}
       </svg>
+      {hoverState ? (
+        <div className="zone-minimap-tooltip zone-minimap-tooltip-small" style={{ marginTop: "0.4rem", position: "static" }}>
+          {hoverState.type === "zone"
+            ? hoverState.zone.name
+            : `Coordonnées : X: ${hoverState.coords.x.toFixed(1)}, Y: ${hoverState.coords.y.toFixed(1)}`}
+        </div>
+      ) : null}
       <div className="garden-map-hover-readout">
-        {hoveredZone
-          ? hoveredZone.name
-          : hoveredPoint
-            ? `Coordonnées : X: ${hoveredPoint.x.toFixed(1)}, Y: ${hoveredPoint.y.toFixed(1)}`
+        {hoverState?.type === "zone"
+          ? hoverState.zone.name
+          : hoverState?.type === "coords"
+            ? `Coordonnées : X: ${hoverState.coords.x.toFixed(1)}, Y: ${hoverState.coords.y.toFixed(1)}`
             : "Coordonnées : X: 0.0, Y: 0.0"}
       </div>
     </div>
