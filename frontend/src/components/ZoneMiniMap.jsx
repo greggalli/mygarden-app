@@ -2,8 +2,10 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGardenData } from "../data/GardenDataContext";
+import { isGardenDebug } from "../utils/gardenDebug";
+import { computeZoneDetailViewBoxFromBBox } from "../utils/gardenMapUtils";
 
-const VIEWBOX_PADDING_RATIO = 0.08;
+const VIEWBOX_PADDING_RATIO = 0.1;
 
 function getZoneBounds(zone) {
   const ring = zone?.geometry?.coordinates?.[0];
@@ -44,14 +46,13 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
 
   const viewBox = useMemo(() => {
     if (!zoneBounds) return null;
-    const padX = Math.max(1, zoneBounds.width * VIEWBOX_PADDING_RATIO);
-    const padY = Math.max(1, zoneBounds.height * VIEWBOX_PADDING_RATIO);
-    const minX = zoneBounds.minX - padX;
-    const maxY = zoneBounds.maxY + padY;
-    const width = zoneBounds.width + padX * 2;
-    const height = zoneBounds.height + padY * 2;
-    return { minX, maxY, width, height };
+    // Root cause note: old code projected polygon points into a 0..100 square and used
+    // preserveAspectRatio="none", causing independent X/Y stretching.
+    return computeZoneDetailViewBoxFromBBox(zoneBounds, VIEWBOX_PADDING_RATIO);
   }, [zoneBounds]);
+
+  const computedViewBox = viewBox ? `${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}` : null;
+  const stageAspectRatio = viewBox?.ratio ?? 1;
 
   useLayoutEffect(() => {
     if (!hoverState || !mapRef.current || !tooltipRef.current) {
@@ -77,6 +78,20 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
     setTooltipStyle({ left: `${leftPx}px`, top: `${topPx}px` });
   }, [hoverState]);
 
+  useLayoutEffect(() => {
+    if (!isGardenDebug() || !viewBox || !mapRef.current) return;
+    const rect = mapRef.current.getBoundingClientRect();
+    const renderedContainerRatio = rect.height > 0 ? rect.width / rect.height : null;
+    console.debug("[ZoneMiniMap] viewBox debug", {
+      zoneId: zone?.id ?? null,
+      localBBox: viewBox.localBBox,
+      svgBBox: viewBox.svgBBox,
+      computedViewBox,
+      viewBoxRatio: viewBox.ratio,
+      renderedContainerRatio
+    });
+  }, [computedViewBox, viewBox, zone?.id]);
+
   if (!zone || !zoneBounds) {
     return <div className="zone-minimap-inner zone-minimap-error">Zone introuvable</div>;
   }
@@ -86,8 +101,9 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
       ? plantPos.coordinates
       : [plantPos?.x_pct, plantPos?.y_pct];
     if (!viewBox) return { x_pct: 0, y_pct: 0 };
+    const svgY = -y;
     const relX = ((x - viewBox.minX) / viewBox.width) * 100;
-    const relY = ((viewBox.maxY - y) / viewBox.height) * 100;
+    const relY = ((svgY - viewBox.minY) / viewBox.height) * 100;
     return { x_pct: relX, y_pct: relY };
   }
 
@@ -95,9 +111,11 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
     if (!viewBox) {
       return { x: zoneBounds.minX, y: zoneBounds.minY };
     }
+    const svgX = viewBox.minX + (relX / 100) * viewBox.width;
+    const svgY = viewBox.minY + (relY / 100) * viewBox.height;
     return {
-      x: viewBox.minX + (relX / 100) * viewBox.width,
-      y: viewBox.maxY - (relY / 100) * viewBox.height
+      x: svgX,
+      y: -svgY
     };
   }
 
@@ -152,18 +170,16 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
       <div
         ref={mapRef}
         className={`zone-minimap-area zone-minimap-area-only ${rotated ? "zone-minimap-area-rotated" : ""}`}
+        style={{ aspectRatio: stageAspectRatio }}
         onMouseMove={handleMapHover}
         onMouseLeave={() => setHoverState(null)}
         onClick={handleMapClick}
       >
         {Array.isArray(zoneRing) && zoneRing.length > 0 ? (
-          <svg className="zone-minimap-shape" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <svg className="zone-minimap-shape" viewBox={computedViewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
             <polygon
               points={zoneRing
-                .map(([x, y]) => {
-                  const rel = toRelativePosition({ coordinates: [x, y] });
-                  return `${rel.x_pct},${rel.y_pct}`;
-                })
+                .map(([x, y]) => `${x},${-y}`)
                 .join(" ")}
               fill="#9ccc9b"
               stroke="#2e7d32"
@@ -209,6 +225,10 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
             </button>
           );
         })}
+
+        {isGardenDebug() && viewBox ? (
+          <div className="zone-minimap-debug-ratio">Ratio: {viewBox.ratio.toFixed(2)}</div>
+        ) : null}
 
         {hoverState ? (
           <div

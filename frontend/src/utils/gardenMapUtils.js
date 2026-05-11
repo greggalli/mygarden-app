@@ -30,3 +30,37 @@ export function resolveGardenDimensions(gardenMap, geometry) {
   const resolvedHeight = Number.isFinite(height) && height > 0 ? height : (bbox?.height || 0);
   return { width, height, resolvedWidth, resolvedHeight, bbox };
 }
+
+export function computeZoneDetailViewBoxFromBBox(bbox, paddingRatio = 0.1) {
+  if (!bbox) return null;
+  const localWidth = Math.max(1, bbox.maxX - bbox.minX);
+  const localHeight = Math.max(1, bbox.maxY - bbox.minY);
+  const padding = Math.max(localWidth, localHeight) * paddingRatio;
+
+  const svgMinX = bbox.minX;
+  const svgMaxX = bbox.maxX;
+  const svgMinY = -bbox.maxY;
+  const svgMaxY = -bbox.minY;
+
+  const minX = svgMinX - padding;
+  const minY = svgMinY - padding;
+  const width = (svgMaxX - svgMinX) + padding * 2;
+  const height = (svgMaxY - svgMinY) + padding * 2;
+
+  return {
+    minX,
+    minY,
+    width,
+    height,
+    ratio: height > 0 ? width / height : 1,
+    localBBox: { ...bbox, width: localWidth, height: localHeight },
+    svgBBox: {
+      minX: svgMinX,
+      maxX: svgMaxX,
+      minY: svgMinY,
+      maxY: svgMaxY,
+      width: svgMaxX - svgMinX,
+      height: svgMaxY - svgMinY
+    }
+  };
+}
