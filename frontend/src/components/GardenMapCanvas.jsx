@@ -15,11 +15,24 @@ function polygonPoints(geometry, width, height) {
   return geometry.coordinates[0].map((pt) => pointToSvg(pt, width, height).join(",")).join(" ");
 }
 
-export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [], highlightedZoneId = null, onZoneClick, onPlantationClick }) {
-  // Implementation note (landing map vs zone-detail map alignment):
-  // - Landing map keeps full-garden viewBox (0..garden.width/height), while ZoneMiniMap fits to a single zone.
-  // - Interaction contract mirrors ZoneMiniMap: a single hover state drives either zone tooltip OR coordinate tooltip.
-  // - Non-interactive overlays use pointer-events none so polygons remain hover/click targets.
+export default function GardenMapCanvas({
+  gardenMap,
+  zones = [],
+  plantations = [],
+  highlightedZoneId = null,
+  onZoneClick,
+  onPlantationClick,
+  mode = "garden",
+  fitToZoneId
+}) {
+  // Implementation notes after comparing the working zone-detail mini-map (ZoneMiniMap)
+  // and the landing-page canvas:
+  // - Shared interaction contract: one hover state, zone hover takes precedence over coordinate hover.
+  // - Layering contract: interactive geometry stays pointer-enabled; passive overlays remain pointer-events none.
+  // - Viewbox contract: landing page (mode="garden") always renders full garden dimensions.
+  //   fitToZoneId is intentionally unused here for now and kept to align the component contract with zone-detail usage.
+  void mode;
+  void fitToZoneId;
   const debug = isGardenDebug();
   const geometry = parseGeometry(gardenMap?.geometry);
   const gardenValidation = validatePolygonGeometry(geometry, "garden");
@@ -143,7 +156,7 @@ export default function GardenMapCanvas({ gardenMap, zones = [], plantations = [
       })}
       </svg>
       {hoverState ? (
-        <div className="zone-minimap-tooltip zone-minimap-tooltip-small" style={{ marginTop: "0.4rem", position: "static" }}>
+        <div className="zone-minimap-tooltip zone-minimap-tooltip-small" style={{ marginTop: "0.4rem", position: "static", pointerEvents: "none" }}>
           {hoverState.type === "zone"
             ? hoverState.zone.name
             : `Coordonnées : X: ${hoverState.coords.x.toFixed(1)}, Y: ${hoverState.coords.y.toFixed(1)}`}
