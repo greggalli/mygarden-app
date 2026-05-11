@@ -722,13 +722,14 @@ button {
   width: 56px;
   height: 56px;
   flex-shrink: 0;
-  overflow: hidden;
-  border-radius: 8px;
+  overflow: visible;
 }
 
 .zone-plant-thumb {
   width: 100%;
   height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .zone-plant-thumb-wrap .species-thumb-hover-wrap > img {
