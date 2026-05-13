@@ -39,6 +39,7 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
   const [hoverState, setHoverState] = useState(null);
   const [tooltipStyle, setTooltipStyle] = useState(null);
   const mapRef = useRef(null);
+  const svgRef = useRef(null);
   const tooltipRef = useRef(null);
 
   const zoneBounds = useMemo(() => getZoneBounds(zone), [zone]);
@@ -53,6 +54,17 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
 
   const computedViewBox = viewBox ? `${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}` : null;
   const stageAspectRatio = viewBox?.ratio ?? 1;
+
+  function svgPointerEventToLocalPoint(event) {
+    if (!svgRef.current || !zoneBounds) return null;
+    const ctm = svgRef.current.getScreenCTM();
+    if (!ctm) return null;
+    const pt = svgRef.current.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+    const svgPoint = pt.matrixTransform(ctm.inverse());
+    return { x: svgPoint.x, y: -svgPoint.y };
+  }
 
   useLayoutEffect(() => {
     if (!hoverState || !mapRef.current || !tooltipRef.current) {
@@ -139,17 +151,18 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
 
   function handleMapHover(event) {
     if (event.target.closest(".zone-minimap-pin")) return;
+    const localPoint = svgPointerEventToLocalPoint(event);
+    if (!localPoint) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const displayX = ((event.clientX - rect.left) / rect.width) * 100;
     const displayY = ((event.clientY - rect.top) / rect.height) * 100;
-    const relative = displayToRelative(displayX, displayY);
-    const globalCoords = toGlobalCoordinates(relative.x, relative.y);
 
     setHoverState({
       type: "coords",
       left: displayX,
       top: displayY,
-      label: formatCoords(globalCoords)
+      label: formatCoords(localPoint),
+      localPoint
     });
   }
 
@@ -158,11 +171,11 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
     const rect = event.currentTarget.getBoundingClientRect();
     const displayX = ((event.clientX - rect.left) / rect.width) * 100;
     const displayY = ((event.clientY - rect.top) / rect.height) * 100;
-    const relative = displayToRelative(displayX, displayY);
-    const globalCoords = toGlobalCoordinates(relative.x, relative.y);
+    const localPoint = svgPointerEventToLocalPoint(event);
+    if (!localPoint) return;
     const shouldCreate = window.confirm("Créer une nouvelle plantation ?");
     if (!shouldCreate) return;
-    const params = new URLSearchParams({ zone_id: String(zone.id), x: globalCoords.x.toFixed(2), y: globalCoords.y.toFixed(2) });
+    const params = new URLSearchParams({ zone_id: String(zone.id), x: localPoint.x.toFixed(2), y: localPoint.y.toFixed(2) });
     navigate(`/add-plant?${params.toString()}`);
   }
 
@@ -176,15 +189,47 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
         onClick={handleMapClick}
       >
         {Array.isArray(zoneRing) && zoneRing.length > 0 ? (
-          <svg className="zone-minimap-shape" viewBox={computedViewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <svg ref={svgRef} className="zone-minimap-shape" viewBox={computedViewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <rect
+              x={viewBox.minX}
+              y={viewBox.minY}
+              width={viewBox.width}
+              height={viewBox.height}
+              fill="none"
+              stroke="#6fa871"
+              strokeWidth={1}
+              vectorEffect="non-scaling-stroke"
+            />
             <polygon
               points={zoneRing
                 .map(([x, y]) => `${x},${-y}`)
                 .join(" ")}
               fill="#9ccc9b"
               stroke="#2e7d32"
-              strokeWidth="0.6"
+              strokeWidth={1.25}
+              vectorEffect="non-scaling-stroke"
             />
+            {isGardenDebug() ? (
+              <g pointerEvents="none">
+                <rect
+                  x={viewBox.localBBox.minX}
+                  y={viewBox.localBBox.minY}
+                  width={viewBox.localBBox.width}
+                  height={viewBox.localBBox.height}
+                  fill="none"
+                  stroke="#f59e0b"
+                  strokeWidth={1}
+                  vectorEffect="non-scaling-stroke"
+                  strokeDasharray="2 2"
+                />
+                {zoneRing.map(([x, y], idx) => (
+                  <g key={`v-${idx}`}>
+                    <circle cx={x} cy={-y} r={1.8} fill="#ef4444" vectorEffect="non-scaling-stroke" />
+                    <text x={x + 1.6} y={-y - 1.6} fontSize="3" fill="#7f1d1d">[{x}, {y}]</text>
+                  </g>
+                ))}
+              </g>
+            ) : null}
           </svg>
         ) : null}
         {plantsInZone.map((plantInstance) => {
@@ -227,7 +272,12 @@ export default function ZoneMiniMap({ zoneId, rotated = false, highlightedPlantI
         })}
 
         {isGardenDebug() && viewBox ? (
-          <div className="zone-minimap-debug-ratio">Ratio: {viewBox.ratio.toFixed(2)}</div>
+          <div className="zone-minimap-debug-ratio" style={{ pointerEvents: "none" }}>
+            <div>Ratio: {viewBox.ratio.toFixed(2)}</div>
+            <div>viewBox: {computedViewBox}</div>
+            <div>zoneBBox: [{zoneBounds.minX}, {zoneBounds.minY}] → [{zoneBounds.maxX}, {zoneBounds.maxY}]</div>
+            {hoverState?.localPoint ? <div>hover: X {hoverState.localPoint.x.toFixed(2)} / Y {hoverState.localPoint.y.toFixed(2)}</div> : null}
+          </div>
         ) : null}
 
         {hoverState ? (
