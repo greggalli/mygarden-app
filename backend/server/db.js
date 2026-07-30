@@ -1,5 +1,6 @@
 const { Pool } = require("pg");
 const { config } = require("./config");
+const { createQueryInterface, toPgSql } = require("./databaseAdapter");
 
 if (!config.databaseUrl) {
   throw new Error("Missing PostgreSQL configuration. Set DATABASE_URL or POSTGRES_HOST/POSTGRES_PORT/POSTGRES_DB/POSTGRES_USER/POSTGRES_PASSWORD.");
@@ -13,36 +14,10 @@ const pool = new Pool({ connectionString: config.databaseUrl });
  * - PostgreSQL rejects non-integer strings such as "NaN" for INTEGER fields.
  * - Validate external payload values in route handlers before calling db.prepare(...).run(...).
  */
-function toPgSql(sql) {
-  let i = 0;
-  return sql.replace(/\?/g, () => `$${++i}`);
-}
-
-function mapRow(row) {
-  if (!row) return row;
-  const next = { ...row };
-  if (typeof next.planting_count === "string") next.planting_count = Number(next.planting_count);
-  if (typeof next.count === "string") next.count = Number(next.count);
-  return next;
-}
-
 const db = {
   prepare(sql) {
     const text = toPgSql(sql);
-    return {
-      async get(...params) {
-        const res = await pool.query(text, params);
-        return mapRow(res.rows[0]);
-      },
-      async all(...params) {
-        const res = await pool.query(text, params);
-        return res.rows.map(mapRow);
-      },
-      async run(...params) {
-        const res = await pool.query(text, params);
-        return { rowCount: res.rowCount };
-      }
-    };
+    return createQueryInterface((params) => pool.query(text, params));
   },
   async exec(sql) {
     await pool.query(sql);
@@ -52,20 +27,7 @@ const db = {
     const txDb = {
       prepare(sql) {
         const text = toPgSql(sql);
-        return {
-          async get(...params) {
-            const res = await client.query(text, params);
-            return mapRow(res.rows[0]);
-          },
-          async all(...params) {
-            const res = await client.query(text, params);
-            return res.rows.map(mapRow);
-          },
-          async run(...params) {
-            const res = await client.query(text, params);
-            return { rowCount: res.rowCount };
-          }
-        };
+        return createQueryInterface((params) => client.query(text, params));
       },
       async exec(sql) { await client.query(sql); }
     };
