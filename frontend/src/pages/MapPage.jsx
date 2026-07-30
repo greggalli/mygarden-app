@@ -1,6 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import GardenMapCanvas from "../components/GardenMapCanvas";
 import GardenMapErrorBoundary from "../components/GardenMapErrorBoundary";
 import { useGardenData } from "../data/GardenDataContext";

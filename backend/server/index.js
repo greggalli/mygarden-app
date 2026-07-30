@@ -176,24 +176,21 @@ function parseZoneCoordinates(rawValue) {
   throw new Error("Coordinates must be an array or JSON array string");
 }
 
-function parseOptionalInteger(rawValue, fieldName) {
-  if (rawValue === undefined || rawValue === null || rawValue === "") {
-    return null;
-  }
-  const parsed = Number(rawValue);
-  if (!Number.isInteger(parsed)) {
-    throw new Error(`Invalid integer for ${fieldName}: ${JSON.stringify(rawValue)}`);
-  }
-  return parsed;
-}
-
 async function loadBootstrapData() {
-  const zoneGeometries = await db.prepare("SELECT * FROM zone_geometries ORDER BY id").all();
+  const [zoneGeometries, plantationCounts, zoneRows, gardenMap, speciesRows, plantations, tasks, photoRows] = await Promise.all([
+    db.prepare("SELECT * FROM zone_geometries ORDER BY id").all(),
+    db.prepare("SELECT zone_id, COUNT(*) AS count FROM plantations WHERE zone_id IS NOT NULL GROUP BY zone_id").all(),
+    db.prepare("SELECT * FROM zones ORDER BY LOWER(name)").all(),
+    getGardenMap(),
+    db.prepare("SELECT * FROM species ORDER BY LOWER(common_name)").all(),
+    db.prepare("SELECT * FROM plantations ORDER BY id").all(),
+    db.prepare("SELECT * FROM tasks ORDER BY id").all(),
+    db.prepare("SELECT id, species_id, filename, mime_type, size_bytes, created_at, sort_order FROM species_photos ORDER BY species_id, sort_order, id").all()
+  ]);
   const geometryByZoneId = new Map(zoneGeometries.map((z) => [z.zone_id, parseJson(z.geometry_json, {})]));
-  const plantationCounts = await db.prepare("SELECT zone_id, COUNT(*) AS count FROM plantations WHERE zone_id IS NOT NULL GROUP BY zone_id").all();
   const plantingCountByZoneId = new Map(plantationCounts.map((row) => [row.zone_id, row.count]));
 
-  const zones = (await db.prepare("SELECT * FROM zones ORDER BY LOWER(name)").all()).map((zone) => {
+  const zones = zoneRows.map((zone) => {
     const g = geometryByZoneId.get(zone.id) || {};
     const coordinates = parseCoordinatesFromGeometry(g);
     return {
@@ -212,15 +209,14 @@ async function loadBootstrapData() {
     };
   });
 
-  const gardenMap = await getGardenMap();
   const payload = {
     gardenMap: gardenMap ? { ...gardenMap, geometry: parseJson(gardenMap.geometry, {}) } : null,
-    species: (await db.prepare("SELECT * FROM species ORDER BY LOWER(common_name)").all()).map(toSpeciesRow),
+    species: speciesRows.map(toSpeciesRow),
     zones,
     zoneGeometries,
-    plantations: (await db.prepare("SELECT * FROM plantations ORDER BY id").all()).map(toPlantationRow),
-    tasks: await db.prepare("SELECT * FROM tasks ORDER BY id").all(),
-    speciesPhotos: (await db.prepare("SELECT * FROM species_photos ORDER BY species_id, sort_order, id").all()).map(toPhotoRow)
+    plantations: plantations.map(toPlantationRow),
+    tasks,
+    speciesPhotos: photoRows.map(toPhotoRow)
   };
   if (isGardenDebugEnabled) {
     console.log("[GardenDebug][API] Bootstrap raw objects:", {
@@ -333,13 +329,15 @@ async function handleRequest(req, res) {
     const now = new Date().toISOString();
 
     const existingGeometry = {};
-    console.debug("[POST /api/zones] Creating zone", {
-      name,
-      coordinatesCount: coordinates.length,
-      hasGeometryJson: Boolean(payload.geometry_json),
-      hasCustomColor: Boolean(payload.color),
-      zoneType: payload.zone_type || null
-    });
+    if (isGardenDebugEnabled) {
+      console.debug("[POST /api/zones] Creating zone", {
+        name,
+        coordinatesCount: parseCoordinatesFromGeometry(geometry).length,
+        hasGeometryJson: Boolean(payload.geometry_json),
+        hasCustomColor: Boolean(payload.color),
+        zoneType: payload.zone_type || null
+      });
+    }
     const nextGeometry = {
       ...existingGeometry,
       ...geometry
@@ -440,7 +438,7 @@ async function handleRequest(req, res) {
     const payload = parseJson((await readBody(req)).toString("utf8"), {});
     const merged = { ...toSpeciesRow(existing), ...payload };
 
-    db.prepare("UPDATE species SET common_name=?, scientific_name=?, family=?, gender=?, specie=?, pruning_period=?, flowering_period=?, care_tips=?, notes=?, external_links_json=?, updated_at=? WHERE id=?")
+    await db.prepare("UPDATE species SET common_name=?, scientific_name=?, family=?, gender=?, specie=?, pruning_period=?, flowering_period=?, care_tips=?, notes=?, external_links_json=?, updated_at=? WHERE id=?")
       .run((merged.common_name || "").trim(), merged.scientific_name || null, merged.family || null, merged.gender || null, merged.specie || null, merged.pruning_period || null, merged.flowering_period || null, merged.care_tips || null, merged.notes || null, JSON.stringify(merged.external_links || []), new Date().toISOString(), id);
 
     json(res, 200, toSpeciesRow(await db.prepare("SELECT * FROM species WHERE id = ?").get(id)));
@@ -475,7 +473,7 @@ async function handleRequest(req, res) {
     const fileBuffer = await readBody(req);
 
     const count = (await db.prepare("SELECT COUNT(*) AS count FROM species_photos WHERE species_id = ?").get(speciesId)).count;
-    db.prepare("INSERT INTO species_photos (species_id, filename, mime_type, size_bytes, image_data, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    await db.prepare("INSERT INTO species_photos (species_id, filename, mime_type, size_bytes, image_data, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(speciesId, filename, String(mimeType), fileBuffer.length, fileBuffer, new Date().toISOString(), count);
 
     const created = (await db.prepare("SELECT * FROM species_photos WHERE species_id = ? ORDER BY id DESC LIMIT 1").get(speciesId));
@@ -533,7 +531,7 @@ async function handleRequest(req, res) {
     if (!isPolygonGeometry(zoneGeometry)) return json(res, 400, { error: "La zone sélectionnée n'a pas de géométrie valide." });
     if (!pointInPolygon(merged.position, zoneGeometry)) return json(res, 400, { error: "Les coordonnées de la plantation doivent se trouver à l'intérieur de la zone sélectionnée." });
 
-    db.prepare("UPDATE plantations SET species_id=?, zone_id=?, planted_at=?, quantity=?, notes=?, nickname=?, position_json=?, updated_at=? WHERE id=?")
+    await db.prepare("UPDATE plantations SET species_id=?, zone_id=?, planted_at=?, quantity=?, notes=?, nickname=?, position_json=?, updated_at=? WHERE id=?")
       .run(merged.species_id, merged.zone_id || null, merged.planted_at || merged.planting_date || null, merged.quantity || 1, merged.notes || null, merged.nickname || null, JSON.stringify(merged.position || null), new Date().toISOString(), id);
     json(res, 200, toPlantationRow(await db.prepare("SELECT * FROM plantations WHERE id = ?").get(id)));
     return;
@@ -547,17 +545,15 @@ async function handleRequest(req, res) {
 
   if (method === "GET" && url.pathname === "/api/admin/export") {
     const data = await loadBootstrapData();
-    const speciesPhotos = [];
-    for (const photo of data.speciesPhotos) {
-      const row = await db.prepare("SELECT image_data FROM species_photos WHERE id = ?").get(photo.id);
-      speciesPhotos.push({
+    const photoData = await db.prepare("SELECT id, image_data FROM species_photos ORDER BY species_id, sort_order, id").all();
+    const imageDataById = new Map(photoData.map((photo) => [photo.id, photo.image_data]));
+    const speciesPhotos = data.speciesPhotos.map((photo) => ({
         id: photo.id,
         speciesId: photo.speciesId,
         filename: photo.filename,
         mimeType: photo.mimeType,
-        dataUrl: `data:${photo.mimeType};base64,${Buffer.from(row.image_data).toString("base64")}`
-      });
-    }
+        dataUrl: `data:${photo.mimeType};base64,${Buffer.from(imageDataById.get(photo.id)).toString("base64")}`
+      }));
 
     json(res, 200, {
       version: 1,
@@ -606,17 +602,17 @@ async function handleRequest(req, res) {
       for (const t of (data.tasks || [])) {
         await insTask.run(t.id, t.plant_instance_id || null, t.zone_id || null, t.due_date || null, t.action || null, t.status || null, t.notes || null, t.created_at || now, t.updated_at || now);
       }
-    });
 
-    const insPhoto = db.prepare("INSERT INTO species_photos (id, species_id, filename, mime_type, size_bytes, image_data, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    for (let i = 0; i < (data.speciesPhotos || []).length; i += 1) {
-      const photo = data.speciesPhotos[i];
-      const match = String(photo.dataUrl || "").match(/^data:(.+);base64,(.*)$/);
-      if (!match) continue;
-      const mimeType = photo.mimeType || match[1];
-      const raw = Buffer.from(match[2], "base64");
-      await insPhoto.run(photo.id || i + 1, photo.speciesId, photo.filename || `photo-${i + 1}`, mimeType, raw.length, raw, now, i);
-    }
+      const insPhoto = tx.prepare("INSERT INTO species_photos (id, species_id, filename, mime_type, size_bytes, image_data, created_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+      for (let i = 0; i < (data.speciesPhotos || []).length; i += 1) {
+        const photo = data.speciesPhotos[i];
+        const match = String(photo.dataUrl || "").match(/^data:(.+);base64,(.*)$/);
+        if (!match) continue;
+        const mimeType = photo.mimeType || match[1];
+        const raw = Buffer.from(match[2], "base64");
+        await insPhoto.run(photo.id || i + 1, photo.speciesId, photo.filename || `photo-${i + 1}`, mimeType, raw.length, raw, now, i);
+      }
+    });
 
     noContent(res);
     return;
@@ -629,16 +625,16 @@ async function start() {
   await initializeSchema();
   await seedIfEmpty(db);
 
-const server = http.createServer((req, res) => {
-  handleRequest(req, res).catch((error) => {
-    json(res, 500, { error: error.message || "Server error" });
+  const server = http.createServer((req, res) => {
+    handleRequest(req, res).catch((error) => {
+      json(res, 500, { error: error.message || "Server error" });
+    });
   });
-});
 
-server.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`MyGarden API running on http://localhost:${PORT}`);
-});
+  server.listen(PORT, () => {
+    // eslint-disable-next-line no-console
+    console.log(`MyGarden API running on http://localhost:${PORT}`);
+  });
 }
 
 start().catch((error) => {
